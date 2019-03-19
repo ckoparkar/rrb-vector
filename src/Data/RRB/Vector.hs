@@ -1,11 +1,12 @@
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
 module Data.RRB.Vector
-  ( Vector , (!), get, snoc, length, update ) where
+  ( Vector , (!), update, snoc, concat
+  , empty, toList, fromList, length ) where
 
 import           Data.Bits
 import           Debug.Trace
-import           Prelude hiding (length)
+import           Prelude hiding (length, concat)
 import qualified Prelude as P
 
 --------------------------------------------------------------------------------
@@ -14,44 +15,37 @@ import qualified Prelude as P
 m :: Int
 m = 4
 
--- |
 log2m :: Int
-log2m = 2
+log2m = round ((logBase 2 . realToFrac) m :: Float)
 
--- |
+-- | Used by 'get' to traverse the tree.
 mask :: Int
 mask = m - 1
 
 type Height = Int
 type Size   = Int
 
+-- | The main datatype.
 data Tree a = Leaf [a]
             | Node { height   :: Height
                    , sizes    :: [Size]
                    , subtrees :: [Tree a] }
   deriving (Show, Read, Eq)
 
+-- | A vector backed by a Radix-Balanced Tree.
 type Vector a = Tree a
 
-----------------------------------------
--- Length
-----------------------------------------
-
--- | Return the length of the vector, assuming that 'sizes' is never empty;
--- which is not how the paper uses it.
-length :: Vector a -> Int
-length tr =
-  case tr of
-    Leaf ns -> P.length ns
-    Node{}  -> last $ sizes tr
+-- TODO: pretty printer.
 
 ----------------------------------------
 -- Lookup
 ----------------------------------------
 
+-- | O(log_m n) indexing.
 (!) :: Vector a -> Int -> a
 (!) = get
 
+-- | O(log_m n) indexing.
 get :: Vector a -> Int -> a
 get tr idx =
   case tr of
@@ -60,6 +54,8 @@ get tr idx =
       let (slot', idx') = indexInNode ht szs idx
       in get (trs !! slot') idx'
 
+-- | Returns the position of the sub-tree to follow (while fetching/updating),
+-- and the new index.
 indexInNode :: Height -> [Size] -> Int -> (Int, Int)
 indexInNode ht szs idx =
   let slot = index_of ht idx
@@ -83,8 +79,9 @@ indexInNode ht szs idx =
 -- Update
 ----------------------------------------
 
--- This is not like the implementation presented in the paper at all.
--- It copies everything, no ST monad.
+-- | O (m * (log_m n)) updates. However, this is not like the implementation
+-- presented in the paper at all. It copies everything instead of using the ST
+-- monad.
 update :: Vector a -> Int -> a -> Vector a
 update tr idx v =
   case tr of
@@ -99,9 +96,10 @@ update tr idx v =
     list_update_at xs i v1 = [ if j == i then v1 else x | (x,j) <- zip xs [0..] ]
 
 ----------------------------------------
--- Insert back/front
+-- Insert front/back
 ----------------------------------------
 
+-- | O (m * (log_m n)).
 snoc :: Vector a -> a -> Vector a
 snoc tr v =
   case tryBottomRight tr v of
@@ -115,6 +113,8 @@ snoc tr v =
           if P.length ns < m
           then Just $ Leaf (ns ++ [v1])
           else Nothing
+        Node ht [] [] -> let new_branch = mkLeafAtHeight (ht-1) v1
+                         in Just $ Node ht [1] [new_branch]
         Node ht szs trs ->
           let bot_right = last trs
           in case tryBottomRight bot_right v1 of
@@ -124,7 +124,6 @@ snoc tr v =
                               in Just $ Node ht (szs' ++ [snocd_size]) (trs' ++ [snocd])
                 Nothing    -> if P.length trs < m
                               then let new_branch = mkLeafAtHeight (ht-1) v1
-                                       -- TODO: Is +1 ok here ?
                                    in Just $ Node ht (szs ++ [last szs + 1]) (trs ++ [new_branch])
                               else Nothing
 
@@ -143,53 +142,36 @@ join a b = Node (height a + 1) [length a, length a + length b] [a,b]
 -- Concat
 ----------------------------------------
 
+-- | O(n) concatenation.
 concat :: Vector a -> Vector a -> Vector a
-concat a b = _
+concat a b = foldl snoc a (toList b)
 
---------------------------------------------------------------------------------
+----------------------------------------
+-- Other common operations
+----------------------------------------
 
-tree10 :: Tree Int
-tree10 = Node 1 [4,8,11]
-                [ Leaf [1,2,3,4]
-                , Leaf [5,6,7,8]
-                , Leaf [9,10,11]
-                ]
+-- | O(1) Empty vector.
+empty :: Vector a
+empty = Node 1 [] []
 
-tree20 :: Tree Int
-tree20 = Node 2 [16,21]
-                [ Node 1 [4,8,12,16]
-                         [ Leaf [1,2,3,4]
-                         , Leaf [5,6,7,8]
-                         , Leaf [9,10,11,12]
-                         , Leaf [13,14,15,16]
-                         ]
-                , Node 1 [4,5]
-                         [ Leaf [17,18,19,20]
-                         , Leaf [21]
-                         ]
-                ]
+-- | O(n) Convert a list to a vector.
+toList :: Vector a -> [a]
+toList = go []
+  where
+    go :: [a] -> Vector a -> [a]
+    go acc tr =
+      case tr of
+        Leaf ns -> acc ++ ns
+        Node _ _ trs  -> foldl go acc trs
 
-tree_ub :: Tree Int
-tree_ub = Node 2 [9, 21]
-                 [ Node 1 [3,6,9]
-                             [ Leaf [1,2,3]
-                             , Leaf [4,5,6]
-                             , Leaf [7,8,9]
-                             ]
-                 , Node 1 [3,6,10,12]
-                          [ Leaf [10,11,12]
-                          , Leaf [13,14,15]
-                          , Leaf [16,17,18,19]
-                          , Leaf [20,21]]
-                 ]
+-- | O(n) Convert a vector to a list.
+fromList :: [a] -> Vector a
+fromList = foldl snoc empty
 
-
-test1, test2, test3, test4, test5 :: Bool
-test1 = tree_ub ! 20 == 21
-test2 = tree_ub ! 2  == 3
-test3 = tree_ub ! 6  == 7
-test4 = tree10  ! 10 == 11
-test5 = tree20  ! 20 == 21
-
-all_tests :: Bool
-all_tests = all (== True) [test1, test2, test3, test4, test5]
+-- | Return the length of the vector, assuming that 'sizes' is never empty;
+-- which is not how the paper uses it.
+length :: Vector a -> Int
+length tr =
+  case tr of
+    Leaf ns -> P.length ns
+    Node{}  -> last $ sizes tr
