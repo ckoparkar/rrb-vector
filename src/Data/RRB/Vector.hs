@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
 module Data.RRB.Vector
-  ( Vector , (!), get, snoc, length ) where
+  ( Vector , (!), get, snoc, length, update ) where
 
 import           Data.Bits
 import           Debug.Trace
@@ -57,26 +57,49 @@ get tr idx =
   case tr of
     Leaf ns -> ns !! idx
     Node ht szs trs ->
-      let slot = index_of ht idx
-          check_slot j = if idx >= (szs !! j)
-                         then check_slot (j+1)
-                         else j
-          slot' = check_slot slot
-          idx'  = idx - (if slot' == 0
-                         then 0
-                         else szs !! (slot' - 1))
+      let (slot', idx') = indexInNode ht szs idx
       in get (trs !! slot') idx'
 
-index_of :: Height -> Int -> Int
-index_of ht i = quot i (m ^ ht) `mod` m
+indexInNode :: Height -> [Size] -> Int -> (Int, Int)
+indexInNode ht szs idx =
+  let slot = index_of ht idx
+      check_slot j = if idx >= (szs !! j)
+                     then check_slot (j+1)
+                     else j
+      slot' = check_slot slot
+      idx'  = idx - (if slot' == 0
+                     then 0
+                     else szs !! (slot' - 1))
+  in (slot', idx')
+  where
+    index_of :: Height -> Int -> Int
+    index_of ht1 i = quot i (m ^ ht1) `mod` m
 
--- Calculate index using bit operations.
-index_of' :: Height -> Int -> Int
-index_of' ht i = shift i (-1 * ht * log2m) .&. mask
-
+    -- Calculate index using bit operations.
+    _index_of' :: Height -> Int -> Int
+    _index_of' ht1 i = shift i (-1 * ht1 * log2m) .&. mask
 
 ----------------------------------------
--- Insert front/back
+-- Update
+----------------------------------------
+
+-- This is not like the implementation presented in the paper at all.
+-- It copies everything, no ST monad.
+update :: Vector a -> Int -> a -> Vector a
+update tr idx v =
+  case tr of
+    Leaf ns -> Leaf $ list_update_at ns idx v
+    Node ht szs trs ->
+      let (slot', idx') = indexInNode ht szs idx
+          tr' = update (trs !! slot') idx' v
+      in Node ht szs (list_update_at trs slot' tr')
+  where
+    -- | (list_update_at ls i v) == (ls[i] = v) in C.
+    list_update_at :: [a] -> Int -> a -> [a]
+    list_update_at xs i v1 = [ if j == i then v1 else x | (x,j) <- zip xs [0..] ]
+
+----------------------------------------
+-- Insert back/front
 ----------------------------------------
 
 snoc :: Vector a -> a -> Vector a
@@ -115,6 +138,13 @@ snoc tr v =
 -- they're not leaves.
 join :: Vector a -> Vector a -> Vector a
 join a b = Node (height a + 1) [length a, length a + length b] [a,b]
+
+----------------------------------------
+-- Concat
+----------------------------------------
+
+concat :: Vector a -> Vector a -> Vector a
+concat a b = _
 
 --------------------------------------------------------------------------------
 

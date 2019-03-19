@@ -9,14 +9,18 @@ license-file:        LICENSE
 author:              Chaitanya Koparkar
 maintainer:          ckoparkar@gmail.com
 build-type:          Simple
--- extra-source-files:  CHANGELOG.md
+extra-source-files:  README.md
 
 library
-  -- exposed-modules:
-  -- other-modules:
-  -- other-extensions:
-  ghc-options:         -Wall
-                       -fdefer-typed-holes -Wtyped-holes
+  exposed-modules:     Data.RRB.Vector
+  ghc-options:         -Wall -fdefer-typed-holes -Wtyped-holes
   build-depends:       base >=4.10 && < 4.13
   hs-source-dirs:      src
+  default-language:    Haskell2010
+
+test-suite test-rrb-vector
+  type:                exitcode-stdio-1.0
+  build-depends:       base, rrb-vector, tasty, tasty-hunit, tasty-th
+  hs-source-dirs:      tests
+  main-is:             Main.hs
   default-language:    Haskell2010
