@@ -19,7 +19,7 @@ The branching factor is global constant (default: 4). Here's a list of vector
 operations this supports:
 
 
-| Op                   | Complexity        |
+| Op                   | Time complexity   |
 |    :---:             |     :---:         |
 | indexing ((!), (!?)) | O(log_m n)        |
 | update               | O(m * (log_m n))  |
