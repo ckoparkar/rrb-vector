@@ -102,17 +102,22 @@ indexInNode ht szs idx =
 -- presented in the paper at all. It copies everything instead of using the ST
 -- monad.
 update :: Vector a -> Int -> a -> Vector a
-update tr idx v =
-  case tr of
-    Leaf ns -> Leaf $ list_update_at ns idx v
-    Node ht szs trs ->
-      let (slot', idx') = indexInNode ht szs idx
-          tr' = update (trs !! slot') idx' v
-      in Node ht szs (list_update_at trs slot' tr')
+update tr idx v
+  | not is_idx_valid = error $ "update: Index " ++ show idx ++ " is out of range (0," ++ show len  ++ ")"
+  | otherwise =
+      case tr of
+        Leaf ns -> Leaf $ list_update_at ns idx v
+        Node ht szs trs ->
+          let (slot', idx') = indexInNode ht szs idx
+              tr' = update (trs !! slot') idx' v
+          in Node ht szs (list_update_at trs slot' tr')
   where
     -- | (list_update_at ls i v) == (ls[i] = v) in C.
     list_update_at :: [a] -> Int -> a -> [a]
     list_update_at xs i v1 = [ if j == i then v1 else x | (x,j) <- zip xs [0..] ]
+
+    len = length tr
+    is_idx_valid = idx >= 0 && idx < len
 
 ----------------------------------------
 -- Insert front/back
