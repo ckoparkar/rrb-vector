@@ -16,7 +16,7 @@ submission deadline. snoc, cons etc. don't have to change because they can
 just be implemented using the new and improved `concat`.
 
 
-The branching factor is global constant (default: 4). Here's a list of vector
+The branching factor `m` is global constant (default: 4). Here's a list of vector
 operations this supports:
 
 
