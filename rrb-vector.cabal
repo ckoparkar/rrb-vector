@@ -20,7 +20,8 @@ library
 
 test-suite test-rrb-vector
   type:                exitcode-stdio-1.0
-  build-depends:       base, rrb-vector, tasty, tasty-hunit, tasty-th
+  build-depends:       base, rrb-vector, tasty, tasty-hunit, tasty-th,
+                       tasty-quickcheck
   hs-source-dirs:      tests
   main-is:             Main.hs
   default-language:    Haskell2010
