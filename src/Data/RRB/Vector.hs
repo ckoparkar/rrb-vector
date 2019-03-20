@@ -4,14 +4,14 @@
 
 module Data.RRB.Vector
   ( Vector , (!), (!?), update, cons, snoc, concat
-  , empty, toList, fromList, length
+  , empty, null, toList, fromList, length
 
   , -- * Some pre-defined testing data
     tree10, tree20, tree_ub, tree_ub2, tree17, tree17_cons
   ) where
 
 import           Data.Bits
-import           Prelude hiding (length, concat)
+import           Prelude hiding (length, concat, null)
 import qualified Prelude as P
 
 --------------------------------------------------------------------------------
@@ -40,7 +40,7 @@ data Tree a = Leaf [a]
 -- | A vector backed by a Radix-Balanced Tree.
 type Vector a = Tree a
 
--- TODO: 'Show' is leaky. And a pretty printer.
+-- TODO: 'Show' is leaky. And a pretty printer would be nice.
 
 ----------------------------------------
 -- Lookup
@@ -50,26 +50,25 @@ type Vector a = Tree a
 (!) :: Vector a -> Int -> a
 (!) tr idx =
   case mb_get tr idx of
-    Left err -> error err
-    Right x  -> x
+    Nothing -> error err
+    Just x  -> x
+  where
+    err = "(!): Index " ++ show idx ++ " is out of range (0," ++ show len  ++ ")"
+    len = length tr
 
 -- | O(log_m n) safe indexing.
 (!?) :: Vector a -> Int -> Maybe a
-(!?) tr idx =
-  case mb_get tr idx of
-    Left{}  -> Nothing
-    Right x -> Just x
+(!?) = mb_get
 
-mb_get :: Vector a -> Int -> Either String a
+mb_get :: Vector a -> Int -> Maybe a
 mb_get tr idx
-  | not is_idx_valid = Left $ "(!): Index " ++ show idx ++ " is out of range (0," ++ show len  ++ ")"
+  | not is_idx_valid = Nothing
   | otherwise =
       case tr of
-        Leaf ns -> Right $ ns !! idx
+        Leaf ns -> Just $ ns !! idx
         Node ht szs trs ->
           let (slot', idx') = indexInNode ht szs idx
           in mb_get (trs !! slot') idx'
-
   where len = length tr
         is_idx_valid = idx >= 0 && idx < len
 
@@ -208,6 +207,10 @@ concat a b = foldl snoc a (toList b)
 empty :: Vector a
 empty = Node 1 [] []
 
+-- | O(1) Is this vector empty ?
+null :: Vector a -> Bool
+null tr = length tr == 0
+
 -- | O(n) Convert a list to a vector.
 toList :: Vector a -> [a]
 toList = go []
@@ -229,8 +232,8 @@ length tr =
   case tr of
     Leaf ns -> P.length ns
     Node _ szs _
-      | null szs  -> 0
-      | otherwise -> last szs
+      | P.null szs -> 0
+      | otherwise  -> last szs
 
 --------------------------------------------------------------------------------
 -- Some pre-defined testing data.
