@@ -14,4 +14,39 @@ the way `get`, `update` and `concat` are implemented. I've finished implementing
 submission deadline. snoc, cons etc. don't have to change because they can
 just be implemented using the new and improved `concat`.
 
+
+The branching factor is global constant (default: 4). Here's a list of vector
+operations this supports:
+
+
+| Op                   | Complexity        |
+|    :---:             |     :---:         |
+| indexing ((!), (!?)) | O(log_m n)        |
+| update               | O(m * (log_m n))  |
+| cons                 | O(m * (log_m n))  |
+| snoc                 | O(m * (log_m n))  |
+| concat               | O(n)              |
+| empty                | O(1)              |
+| toList               | O(n)              |
+| fromList             | O(n)              |
+| length               | O(1)              |
+
+
 [1]: https://infoscience.epfl.ch/record/213452/files/rrbvector.pdf
+
+
+## Usage
+
+Run tests with:
+
+    $ cabal new-test
+
+or
+
+    $ stack test
+
+
+## Shortcuts
+
+1. [Data.RRB.Vector.hs](https://github.com/ckoparkar/rrb-vector/blob/master/src/Data/RRB/Vector.hs)
+2. [Tests](https://github.com/ckoparkar/rrb-vector/blob/master/tests/Main.hs)

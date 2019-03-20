@@ -4,7 +4,6 @@
 module Main where
 
 import Test.Tasty
-import Test.Tasty.ExpectedFailure
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
 import Test.Tasty.TH
@@ -88,9 +87,7 @@ prop_update v =
                    vec' = V.update vec idx v
                in vec' V.! idx == v
 
-prop_concat :: Int -> Int -> Bool
-prop_concat n m = (V.toList v_concat) == (ns ++ ms)
+prop_concat :: [Int] -> [Int] -> Bool
+prop_concat ns ms = (V.toList v_concat) == (ns ++ ms)
   where
-    ns = [1..n]
-    ms = [1..m]
     v_concat = V.fromList ns `V.concat` V.fromList ms
