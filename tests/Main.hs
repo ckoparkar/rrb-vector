@@ -49,7 +49,7 @@ case_cons_new_root = assertEqual "cons17" (V.cons (V.fromList [1..16]) 17) V.tre
 case_snoc_new_root :: Assertion
 case_snoc_new_root = assertEqual "snoc17" (V.snoc (V.fromList [1..16]) 17) V.tree17
 
-case_get_too_big = assertEqual "[1..16] ! 3 == Nothing" ((V.fromList [1..16]) V.!? 16) Nothing
+case_get_too_big = assertEqual "[1..16] ! 16 == Nothing" ((V.fromList [1..16]) V.!? 16) Nothing
 
 -- Some quickcheck tests.
 
@@ -62,32 +62,37 @@ prop_length ls = length ls == V.length (V.fromList ls)
 prop_get_null :: Int -> Bool
 prop_get_null n = (V.empty :: V.Vector Int) V.!? n == Nothing
 
--- | Given a list of integers, and a valid index within that list,
+-- | Given an ordered list of integers, and a valid index within that list,
 --  check if a property holds.
-qc_with_list_and_valid_index :: ([Int] -> Int -> Bool) -> Property
-qc_with_list_and_valid_index fn =
+qc_with_orderedlist_and_valid_index :: ([Int] -> Int -> Bool) -> Property
+qc_with_orderedlist_and_valid_index prop =
   forAll num_gt_1
     (\n -> do let ls = [1..n]
               forAll (valid_indices_in ls)
-                (\idx -> fn ls idx))
-
+                (\idx -> prop ls idx))
   where
     num_gt_1 = arbitrary `suchThat` (\n -> n > 1)
     valid_indices_in xs = elements (init xs)
 
 prop_get_fromlist :: Property
 prop_get_fromlist =
-  qc_with_list_and_valid_index $
+  qc_with_orderedlist_and_valid_index $
     \ls idx -> (V.fromList ls V.! idx) == (1 + idx)
 
 prop_update :: Int -> Property
 prop_update v =
-  qc_with_list_and_valid_index $
+  qc_with_orderedlist_and_valid_index $
     \ls idx -> let vec  = V.fromList ls
                    vec' = V.update vec idx v
                in vec' V.! idx == v
 
 prop_concat :: [Int] -> [Int] -> Bool
 prop_concat ns ms = (V.toList v_concat) == (ns ++ ms)
+  where
+    v_concat = V.fromList ns `V.concat` V.fromList ms
+
+
+prop_concat_length :: [Int] -> [Int] -> Bool
+prop_concat_length ns ms = (V.length v_concat) == length (ns ++ ms)
   where
     v_concat = V.fromList ns `V.concat` V.fromList ms

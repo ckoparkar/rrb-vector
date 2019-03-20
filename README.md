@@ -1,8 +1,8 @@
 ## ~~r~~ rb-vector
 
 An implementation of vectors backed by a Radix-Balanced Tree.
-Initially, I proposed to implement RRB (Relaxed-Radix-Balanced) trees [[1]] instead
-(but could only finish a part of it).
+Initially, I proposed to implement RRB (Relaxed-Radix-Balanced) trees [[1]] instead,
+but could only finish a part of it.
 The main difference between them is that
 in an RRB tree, nodes are allowed to contain subtrees that are not
 completely full. This makes `concat`enation a lot faster (O (log n) vs O(n) for RB trees),
@@ -51,3 +51,5 @@ or
 
 1. [Data.RRB.Vector.hs](https://github.com/ckoparkar/rrb-vector/blob/master/src/Data/RRB/Vector.hs)
 2. [Tests](https://github.com/ckoparkar/rrb-vector/blob/master/tests/Main.hs)
+3. [RRB-Trees paper][1]
+4. This [blogpost](https://hypirion.com/musings/understanding-persistent-vector-pt-1) is also a good read.
