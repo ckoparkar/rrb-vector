@@ -46,7 +46,7 @@ or
     $ stack test
 
 
-## Shortcuts
+## Quick links
 
 1. [Data.RRB.Vector.hs](https://github.com/ckoparkar/rrb-vector/blob/master/src/Data/RRB/Vector.hs)
 2. [Tests](https://github.com/ckoparkar/rrb-vector/blob/master/tests/Main.hs)
