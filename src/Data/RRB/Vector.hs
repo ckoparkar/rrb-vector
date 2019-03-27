@@ -77,15 +77,24 @@ mb_get tr idx
 indexInNode :: Height -> [Size] -> Int -> (Int, Int)
 indexInNode ht szs idx =
   let slot = index_of ht idx
-      check_slot j = if idx >= (szs !! j)
-                     then check_slot (j+1)
-                     else j
-      slot' = check_slot slot
+      -- check_slot j = if idx >= (szs !! j)
+      --                then check_slot (j+1)
+      --                else j
+      -- slot' = check_slot slot
+      slot' = check_slot (drop slot (zip szs [0..])) idx
       idx'  = idx - (if slot' == 0
                      then 0
                      else szs !! (slot' - 1))
   in (slot', idx')
   where
+
+    -- It's only defined this way to appease Coq's termination checker.
+    check_slot :: [(Int, Int)] -> Int -> Int
+    check_slot [] _ = error ""
+    check_slot ((sz,j):rst) idx1
+      | sz <= idx1 = check_slot rst idx1
+      | otherwise  = j
+
     index_of :: Height -> Int -> Int
     index_of ht1 i = quot i (m ^ ht1) `mod` m
 
@@ -278,6 +287,14 @@ tree_ub2 = Node 1 [1,3,6,10]
                 , Leaf [2,3]
                 , Leaf [4,5,6]
                 , Leaf [7,8,9,10]
+                ]
+
+tree_ub3 :: Vector Int
+tree_ub3 = Node 1 [1,2,3,4]
+                [ Leaf [1]
+                , Leaf [2]
+                , Leaf [3]
+                , Leaf [4]
                 ]
 
 
