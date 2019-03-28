@@ -9,6 +9,9 @@ From Coq Require Import Omega.
 Lemma zero_gt_zero_false : 0 > 0 -> False.
 Proof. omega. Qed.
 
+Lemma zero_lt_zero_false : 0 < 0 -> False.
+Proof. omega. Qed.
+
 Lemma empty_not_empty {A : Type} : (@nil A) <> [] -> False.
 Proof. congruence. Qed.
 
@@ -26,8 +29,8 @@ Proof.
     - intros. unfold length. apply gt_Sn_O.
 Qed.
 
-Definition strong_head : forall ls : list nat, ls <> [] -> nat.
-  refine (fun (ls : list nat) =>
+Definition strong_head {A : Type} : forall ls : list A, ls <> [] -> A.
+  refine (fun (ls : list A) =>
             match ls with
             | []     => fun _ => _
             | a :: _ => fun _ => a
@@ -36,14 +39,11 @@ Definition strong_head : forall ls : list nat, ls <> [] -> nat.
   congruence.
 Defined.
 
-Definition strong_last : forall ls : list nat, ls <> [] -> nat.
-  refine (fix f (ls : list nat) :=
+Definition strong_last {A : Type} : forall ls : list A, ls <> [] -> A.
+  refine (fix f (ls : list A) :=
             match ls with
             | []       => fun pf  => _
-            | a :: rst => match rst with
-                          | [] => fun _ => a
-                          | _  => fun _ => last rst a
-                          end
+            | a :: rst => fun _   => last rst a
             end).
   (* [] *)
   congruence.
