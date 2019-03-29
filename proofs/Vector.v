@@ -5,6 +5,7 @@ Require Import List.
 Import ListNotations.
 From Coq Require Import Omega.
 From Coq Require Import Logic.FunctionalExtensionality.
+From Coq Require Import Program.Wf.
 
 From RRB Require Import Prelude.
 
@@ -42,6 +43,25 @@ Definition get_height {A : Set} (tr : @vector A) : nat :=
   | Node ht _ _ => ht
   end.
 
+(* Should these things be written down as specs instead ? *)
+
+Axiom leaf_sizes_elems :
+  forall {A : Set} (szs : list size) (ns : list A) (tr : @vector A),
+  tr = Leaf szs ns -> length szs = length ns.
+
+Axiom leaf_sizes_elems_m :
+  forall {A : Set} (szs : list size) (ns : list A) (tr : @vector A),
+  tr = Leaf szs ns -> length ns <= m.
+
+Axiom node_sizes_elems : forall {A : Set}
+  (ht : nat) (szs : list size) (trs : list (@vector A)) (tr : @vector A),
+  tr = Node ht szs trs -> length szs = length trs.
+
+Axiom node_sizes_elems_m : forall {A : Set}
+  (ht : nat) (szs : list size) (trs : list (@vector A)) (tr : @vector A),
+   tr = Node ht szs trs -> length trs <= m.
+
+
 (* ---------------------------------- *)
 (* -- Other common operations         *)
 (* ---------------------------------- *)
@@ -67,24 +87,6 @@ Proof.
     - apply cons_not_empty.
 Qed.
 
-(* Should these things be written down as specs instead ? *)
-
-Axiom leaf_sizes_elems :
-  forall {A : Set} (szs : list size) (ns : list A) (tr : @vector A),
-  tr = Leaf szs ns -> length szs = length ns.
-
-Axiom leaf_sizes_elems_m :
-  forall {A : Set} (szs : list size) (ns : list A) (tr : @vector A),
-  tr = Leaf szs ns -> length ns <= m.
-
-Axiom node_sizes_elems : forall {A : Set}
-  (ht : nat) (szs : list size) (trs : list (@vector A)) (tr : @vector A),
-   tr = Node ht szs trs -> length szs = length trs.
-
-Axiom node_sizes_elems_m : forall {A : Set}
-  (ht : nat) (szs : list size) (trs : list (@vector A)) (tr : @vector A),
-  tr = Node ht szs trs -> length trs <= m.
-
 Lemma vec_length_leaves_sizes {A : Set} :
   forall (tr : vector) (szs : list size) (ns : list A),
     tr = Leaf szs ns -> vec_length tr = length ns.
@@ -94,9 +96,57 @@ Proof.
   + congruence.
 Qed.
 
+Definition empty_vec {A : Set} : (@vector A) := Node 1 [] [].
+
 (* ---------------------------------- *)
 (* -- Lookup                          *)
 (* ---------------------------------- *)
+
+(* Not using bit operations for now *)
+Definition index_of (ht : height) (i : nat) : nat :=
+  (i / (m ^ ht)) mod m.
+
+Fixpoint mb_check_slot
+  (sz_js : list (nat * nat)) (idx : nat) : option nat :=
+  match sz_js with
+  | [] => None
+  | (sz , j) :: rst => if sz <? idx
+                       then mb_check_slot rst idx
+                       else Some j
+  end.
+
+Definition indexInNode {A : Set}
+  (ht : height) (szs : list size) (idx : nat) : option (nat * nat) :=
+  let slot     := index_of ht idx in
+  let mb_slot' := mb_check_slot (skipn slot (combine szs (seq 0 (length szs)))) slot in
+  match mb_slot' with
+  | None => None
+  | Some slot' => let idx':= idx - (if slot' =? 0
+                                    then 0
+                                    else nth (slot' - 1) szs 0) in
+                  Some (slot', idx')
+  end.
+
+Program Fixpoint get {A : Set}
+  (tr : @vector A) (idx : nat) (default : A) {measure (vec_length tr)} : A :=
+  match tr with
+  | Leaf _ ns => if idx <? length ns
+                 then strong_nth idx ns _
+                 else default
+  | Node ht szs trs =>
+    match trs with
+    | [] => default
+    | a :: rst => match @indexInNode A ht szs idx  with
+                  | Some (slot' , idx') => get (strong_nth slot' trs _) idx' default
+                  | None => default
+                  end
+    end
+  end.
+   Admit Obligations.
+
+(*
+
+Verified lookup, WIP.
 
 (* Not using bit operations for now *)
 Definition index_of (ht : height) (i : nat) : nat :=
@@ -152,19 +202,31 @@ We know:
 *)
 
 Definition indexInNode : forall {A : Set}
-  (tr : vector) (ht : height) (szs : list size) (idx : nat),
+  (ht : height) (trs : list (@vector A)) (szs : list size)
+  (tr : vector) (tr_node : tr = Node ht szs trs) (szs_not_nil : szs <> []) (idx : nat),
   idx < (@vec_length A tr) -> (nat * nat).
-  refine (fun A tr ht szs idx idx_lt_vec_len =>
-            let slot  := index_of ht idx in
-            let sz_js := skipn slot (combine szs (seq 0 (length szs))) in
-            match sz_js with
-            | [] => _
-            | a :: b => let slot' := check_slot (exist _ (a :: b) (cons_not_empty a b)) idx in
-                        let idx' := idx - (if eqb slot' 0
-                                           then 0
-                                           else strong_nth szs (slot' - 1) _)
-                        in (slot' , idx')
-            end).
+  refine (fun A ht trs szs tr tr_node szs_not_nil idx idx_lt_vec_len =>
+            let slot    := index_of ht idx in
+            let sz_js_1 := combine szs (seq 0 (length szs)) in
+            let sz_js   := skipn slot sz_js_1 in
+            (match sz_js as sz_js' return sz_js = sz_js' -> (nat * nat) with
+             | [] => fun sz_js_nil => _
+             | a :: b =>
+               fun _ =>
+                 let slot' := check_slot (exist _ (a :: b) (cons_not_empty a b)) idx in
+                 let idx' := idx - (if eqb slot' 0
+                                    then 0
+                                    else strong_nth szs (slot' - 1) _)
+                 in (slot' , idx')
+             end) (eq_refl sz_js)).
+  (* sz_js <> [] *)
+  + assert(slot_lt : slot < length (combine szs (seq 0 (length szs)))).
+    { rewrite combine_length. rewrite seq_length. rewrite min_eq.
+      apply nooo with trs tr. apply tr_node. apply idx_lt_vec_len. }
+  (*   assert (length_sz_js_not_O : length sz_js_1 <> 0). *)
+  (*   { subst. unfold sz_js_1. rewrite combine_length. rewrite seq_length. *)
+  (*     rewrite min_eq. apply length_zero_iff_nil. apply szs_not_nil. } *)
+  (*   apply length_not_zero_inv in length_sz_js_not_O. *)
   Admitted.
 
 Definition get {A : Set}
@@ -181,11 +243,13 @@ Definition get {A : Set}
     - apply tr.
 Defined.
 
+*)
+
 (* ---------------------------------- *)
 (* -- Insert front/back               *)
 (* ---------------------------------- *)
 
-Inductive wherE : Set := Front | Back.
+Inductive wherE : Set := Front | Back.3
 
 Fixpoint mkLeafAtHeight {A : Set} (ht : height) (v1 : A) : (vector) :=
   match ht with
@@ -195,11 +259,6 @@ Fixpoint mkLeafAtHeight {A : Set} (ht : height) (v1 : A) : (vector) :=
 
 Definition join {A : Set} (a : @vector A) (b : @vector A) : (@vector A) :=
   Node (get_height a + 1) [ vec_length a ; (vec_length a + vec_length b) ] [a ; b].
-
-Lemma length_not_empty_inv {A B : Set} :
-  forall (xs : list A) (ys : list B),
-  length xs = length ys -> xs <> [] -> ys <> [].
-Proof. Admitted.
 
 
 Definition tryBottom : forall {A : Set}
@@ -280,3 +339,7 @@ Definition insert {A : Set} (whr : wherE) (tr : vector) (v : A) : vector :=
             end
 
   end.
+
+
+Definition cons {A : Set} (tr : vector) (v : A) : vector :=
+  insert Front tr v.
