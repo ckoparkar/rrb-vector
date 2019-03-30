@@ -8,6 +8,7 @@ From Coq Require Import Logic.FunctionalExtensionality.
 From Coq Require Import Program.Wf.
 
 From RRB Require Import Prelude.
+From RRB Require Import Crush.
 
 (* -------------------------------------------------------------------------- *)
 
@@ -63,15 +64,29 @@ Axiom node_sizes_elems_m : forall {A : Set}
 
 
 (* ---------------------------------- *)
-(* -- Other common operations         *)
+(* -- Length                          *)
 (* ---------------------------------- *)
+
+(* Inefficient, but easier to write proofs. *)
+Fixpoint vec_length {A : Set} (tr : @vector A) : nat :=
+  match tr with
+  | Leaf szs ns  => length szs
+  | Node _ _ trs => match trs with
+                    | [] => 0
+                    | a :: rst =>
+                      (* strong_last (a :: rst) (cons_not_nil a rst) *)
+                      fold_right (fun t acc => acc + vec_length t) 0 trs
+                    end
+  end.
+
+(*
 
 Definition vec_length {A : Set} (tr : @vector A) : nat :=
   match tr with
   | Leaf szs ns  => length szs
   | Node _ szs _ => match szs with
                     | [] => 0
-                    | a :: rst => strong_last (a :: rst) (cons_not_empty a rst)
+                    | a :: rst => strong_last (a :: rst) (cons_not_nil a rst)
                     end
   end.
 
@@ -84,7 +99,7 @@ Proof.
   + unfold get_sizes. unfold vec_length in H.
     induction l.
     - apply zero_gt_zero_false in H. unfold not. intro. apply H.
-    - apply cons_not_empty.
+    - apply cons_not_nil.
 Qed.
 
 Lemma vec_length_leaves_sizes {A : Set} :
@@ -96,7 +111,8 @@ Proof.
   + congruence.
 Qed.
 
-Definition empty_vec {A : Set} : (@vector A) := Node 1 [] [].
+*)
+
 
 (* ---------------------------------- *)
 (* -- Lookup                          *)
@@ -213,7 +229,7 @@ Definition indexInNode : forall {A : Set}
              | [] => fun sz_js_nil => _
              | a :: b =>
                fun _ =>
-                 let slot' := check_slot (exist _ (a :: b) (cons_not_empty a b)) idx in
+                 let slot' := check_slot (exist _ (a :: b) (cons_not_nil a b)) idx in
                  let idx' := idx - (if eqb slot' 0
                                     then 0
                                     else strong_nth szs (slot' - 1) _)
@@ -249,7 +265,7 @@ Defined.
 (* -- Insert front/back               *)
 (* ---------------------------------- *)
 
-Inductive wherE : Set := Front | Back.3
+Inductive wherE : Set := Front | Back.
 
 Fixpoint mkLeafAtHeight {A : Set} (ht : height) (v1 : A) : (vector) :=
   match ht with
@@ -261,85 +277,108 @@ Definition join {A : Set} (a : @vector A) (b : @vector A) : (@vector A) :=
   Node (get_height a + 1) [ vec_length a ; (vec_length a + vec_length b) ] [a ; b].
 
 
-Definition tryBottom : forall {A : Set}
-  (whr : wherE) (tr : @vector A) (v1 : A), option (@vector A).
-  refine
-    (fix f {A : Set} (whr : wherE) (tr : @vector A) (v1 : A) : option (@vector A) :=
-       ((match tr as tr' return tr = tr' -> option (vector) with
-         | Leaf szs ns =>
-           if length ns <? m
-           then match whr with
-                | Front => fun _ => Some (Leaf (1 :: szs) (v1 :: ns))
-                | Back  => fun _ => Some (Leaf (szs ++ [1]) (ns ++ [v1]))
-                end
-           else fun _ => None
-         | Node ht szs trs =>
-           fun pf_tr =>
-             (match trs as trs' return trs = trs' -> option (vector) with
-              | [] => fun _ => Some (Node ht [1] [mkLeafAtHeight (ht - 1) v1])
-              | hd :: rst  =>
-                fun pf_trs' =>
-                  let node_to_try := match whr with
-                                     | Front => strong_head trs _
-                                     | Back  => strong_last trs _
-                                     end in
-                  (* If we recur on node_to_try, it upsets Coq's termination checker *)
-                  match (f whr hd v1) with
-                  | Some has_v =>
-                    match whr with
-                    | Front => let hd_szs := strong_head szs _ in
-                               let tl_szs := tl szs in
-                               let szs'   := (1 + hd_szs) :: tl_szs in
-                               let trs'   := has_v :: tl trs in
-                               Some (Node ht szs' trs')
-                    | Back  => let last_szs := strong_last szs _ in
-                               let szs'     := removelast szs ++ [1 + last_szs] in
-                               let trs'     := removelast trs ++ [has_v] in
-                               Some (Node ht szs' trs')
-                    end
-                  | None =>
-                    if length trs <? m
-                    then let branch := mkLeafAtHeight (ht - 1) v1 in
-                         let szs'   := (match whr with
-                                        | Front => 1 :: (map (fun x => x + 1) szs)
-                                        | Back  => let last_szs := strong_last szs _ in
-                                                   szs ++ [1 + last_szs]
-                                        end) in
-                         let trs'   := (match whr with
-                                        | Front => branch :: trs
-                                        | Back  => trs ++ [branch]
-                                        end) in
+Program Fixpoint tryBottom_back {A : Set} (tr : @vector A) (v1 : A) {measure (vec_length tr)} : option (@vector A) :=
+  match tr with
+  | Leaf szs ns =>
+    if length ns <? m
+    then Some (Leaf (szs ++ [1]) (ns ++ [v1]))
+    else None
+  | Node ht szs trs =>
+    (match trs as trs' return trs = trs' -> option (vector) with
+     | [] => fun _ => Some (Node ht [1] [mkLeafAtHeight (ht - 1) v1])
+     | t :: ts  =>
+       fun trs_not_nil =>
+         (match szs as szs' return szs = szs' -> option (vector) with
+          | [] => fun _ => None
+          | s :: ss =>
+            fun szs_not_nil =>
+              let node_to_try := strong_last trs (cons_not_nil t ts) in
+              match tryBottom_back node_to_try v1 with
+              | Some has_v => let last_sz := strong_last szs (cons_not_nil s ss) in
+                              let szs' := removelast szs ++ [1 + last_sz] in
+                              let trs' := removelast trs ++ [has_v] in
+                              Some (Node ht szs' trs')
+              | None =>
+                if length trs <? m
+                then let branch  := mkLeafAtHeight (ht - 1) v1 in
+                     let last_sz := strong_last szs (cons_not_nil s ss) in
+                     let szs'    := szs ++ [1 + last_sz] in
+                     let trs'    := trs ++ [branch]
+                     in Some (Node ht szs' trs')
+                else None
+              end
+          end) (eq_refl szs)
+     end) (eq_refl trs)
+  end.
+  Admit Obligations.
+
+Fixpoint tryBottom_front {A : Set} (tr : @vector A) (v1 : A) : option (@vector A) :=
+  match tr with
+  | Leaf szs ns =>
+    if length ns <? m
+    then Some (Leaf (1 :: szs) (v1 :: ns))
+    else None
+  | Node ht szs trs =>
+    match trs with
+     | [] => Some (Node ht [1] [mkLeafAtHeight (ht - 1) v1])
+     | t :: ts  =>
+       match szs with
+       | [] => None
+       | s :: ss =>
+         let node_to_try := t in
+         match tryBottom_front node_to_try v1 with
+         | Some has_v => let szs' := (1 + s) :: ss in
+                         let trs' := has_v :: ts in
                          Some (Node ht szs' trs')
-                    else None
-                  end
-              end) (eq_refl trs)
-         end) (eq_refl tr))).
-  Unshelve.
-  (* when tryBottom succeeds, szs <> [] *)
-  + apply length_not_empty_inv with (hd :: rst).
-    rewrite node_sizes_elems with ht szs (hd :: rst) tr. auto.
-    rewrite <- pf_trs'. apply pf_tr. apply (cons_not_empty hd rst).
-  + apply length_not_empty_inv with (hd :: rst).
-    rewrite node_sizes_elems with ht szs (hd :: rst) tr. auto.
-    rewrite <- pf_trs'. apply pf_tr. apply (cons_not_empty hd rst).
-  + apply length_not_empty_inv with (hd :: rst).
-    rewrite node_sizes_elems with ht szs (hd :: rst) tr. auto.
-    rewrite <- pf_trs'. apply pf_tr. apply (cons_not_empty hd rst).
-  (* node_to_try => trs <> [] *)
-  + rewrite pf_trs'. apply (cons_not_empty hd rst).
-  + rewrite pf_trs'. apply (cons_not_empty hd rst).
-Qed.
+         | None =>
+           if length trs <? m
+           then let branch := mkLeafAtHeight (ht - 1) v1 in
+                let szs'   := 1 :: (map (fun x => x + 1) szs) in
+                let trs'   := branch :: trs
+                in Some (Node ht szs' trs')
+           else None
+         end
+       end
+    end
+  end.
 
 Definition insert {A : Set} (whr : wherE) (tr : vector) (v : A) : vector :=
-  match tryBottom whr tr v with
-  | Some has_v => has_v
-  | None => match whr with
-            | Front => join (mkLeafAtHeight (get_height tr) v) tr
-            | Back  => join tr (mkLeafAtHeight (get_height tr) v)
-            end
-
+  match whr with
+  | Front => match tryBottom_front tr v with
+             | Some has_v => has_v
+             | None       => join (mkLeafAtHeight (get_height tr) v) tr
+             end
+  | Back  => match tryBottom_back tr v with
+             | Some has_v => has_v
+             | None       => join tr (mkLeafAtHeight (get_height tr) v)
+             end
   end.
 
 
 Definition cons {A : Set} (tr : vector) (v : A) : vector :=
   insert Front tr v.
+
+Definition snoc {A : Set} (tr : vector) (v : A) : vector :=
+  insert Back tr v.
+
+
+(* ---------------------------------- *)
+(* -- Other common operations         *)
+(* ---------------------------------- *)
+
+Definition empty_vec {A : Set} : (@vector A) := Node 1 [] [].
+
+Definition is_vec_empty {A : Set} (tr : @vector A) : bool :=
+  vec_length tr =? 0.
+
+Fixpoint go_toList {A : Set} (tr : @vector A) (acc : list A) : list A :=
+  match tr with
+  | Leaf _ ns    => ns ++ acc
+  | Node _ _ trs => fold_right (fun t acc => go_toList t acc) acc trs
+  end.
+
+Definition toList {A : Set} (tr : @vector A) : list A :=
+  go_toList tr [].
+
+Definition fromList {A : Set} (xs : list A) : (@vector A) :=
+  fold_left (fun x acc => snoc x acc) xs empty_vec.

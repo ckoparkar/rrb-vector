@@ -15,7 +15,7 @@ Proof. omega. Qed.
 Lemma empty_not_empty {A : Type} : (@nil A) <> [] -> False.
 Proof. congruence. Qed.
 
-Lemma cons_not_empty {A : Type} : forall (a : A) (ls : list A), (a :: ls) <> [].
+Lemma cons_not_nil {A : Type} : forall (a : A) (ls : list A), (a :: ls) <> [].
 Proof. intros. congruence. Qed.
 
 Lemma length_gt_zero_iff_not_nil {A : Set} (l : list A): length l > 0 <-> l <> [].
@@ -23,7 +23,7 @@ Proof.
   intros. split.
   + destruct l.
     - simpl. intros. apply zero_gt_zero_false in H. apply False_rec. apply H.
-    - simpl. intros. apply cons_not_empty.
+    - simpl. intros. apply cons_not_nil.
   + destruct l.
     - intros. congruence.
     - intros. unfold length. apply gt_Sn_O.
