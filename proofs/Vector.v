@@ -65,7 +65,7 @@ Axiom node_sizes_elems_m : forall {A : Set}
 
 
 (* ---------------------------------- *)
-(* -- Length                          *)
+(* -- Common operations               *)
 (* ---------------------------------- *)
 
 (* Inefficient, but easier to write proofs. *)
@@ -80,59 +80,10 @@ Fixpoint vec_length {A : Set} (tr : @vector A) : nat :=
                     end
   end.
 
-(* Source: http://adam.chlipala.net/cpdt/html/GeneralRec.html *)
-Definition vec_length_order {A : Set} (tr1 tr2 : @vector A) :=
-  vec_length tr1 < vec_length tr2.
+Definition empty_vec {A : Set} : (@vector A) := Node 1 [] [].
 
-Lemma vec_length_node_elems {A : Set} :
-  forall (tr : @vector A) (ht : height) (szs : list size) (trs : list vector) (tr2 : vector),
-    tr = Node ht szs trs -> In tr2 trs -> vec_length tr2 < vec_length tr.
-  Admitted.
-
-Hint Constructors Acc.
-
-Lemma vec_length_order_wf' :
-  forall len, forall A ls, vec_length ls <= len -> Acc (@vec_length_order A) ls.
-  unfold vec_length_order; induction len; crush.
-Defined.
-
-Theorem vec_length_order_wf {A : Set} : well_founded (@vec_length_order A).
-  red; intro; eapply vec_length_order_wf'; eauto.
-Defined.
-
-(*
-
-Definition vec_length {A : Set} (tr : @vector A) : nat :=
-  match tr with
-  | Leaf szs ns  => length szs
-  | Node _ szs _ => match szs with
-                    | [] => 0
-                    | a :: rst => strong_last (a :: rst) (cons_not_nil a rst)
-                    end
-  end.
-
-Lemma vec_length_sizes {A : Set} :
-  forall (tr : vector),  (vec_length tr > 0) -> (@get_sizes A tr) <> [].
-Proof.
-  intros. induction tr.
-  + unfold vec_length in H. unfold get_sizes.
-    apply length_gt_zero_iff_not_nil. apply H.
-  + unfold get_sizes. unfold vec_length in H.
-    induction l.
-    - apply zero_gt_zero_false in H. unfold not. intro. apply H.
-    - apply cons_not_nil.
-Qed.
-
-Lemma vec_length_leaves_sizes {A : Set} :
-  forall (tr : vector) (szs : list size) (ns : list A),
-    tr = Leaf szs ns -> vec_length tr = length ns.
-Proof.
-  intros. remember tr as tr'. induction tr.
-  + rewrite H. unfold vec_length. apply leaf_sizes_elems with tr'. apply H.
-  + congruence.
-Qed.
-
-*)
+Definition is_vec_empty {A : Set} (tr : @vector A) : bool :=
+  vec_length tr =? 0.
 
 
 (* ---------------------------------- *)
@@ -152,7 +103,7 @@ Fixpoint mb_check_slot
                        else Some j
   end.
 
-Definition indexInNode {A : Set}
+Definition indexInNode
   (ht : height) (szs : list size) (idx : nat) : option (nat * nat) :=
   let slot     := index_of ht idx in
   let mb_slot' := mb_check_slot (skipn slot (combine szs (seq 0 (length szs)))) slot in
@@ -164,25 +115,34 @@ Definition indexInNode {A : Set}
                   Some (slot', idx')
   end.
 
-Program Fixpoint get {A : Set}
-  (tr : @vector A) (idx : nat) (default : A) {measure (vec_length tr)} : A :=
+Fixpoint get {A : Set} (tr : @vector A) (idx : nat) (default : A) : A :=
   match tr with
-  | Leaf _ ns => if idx <? length ns
-                 then nth idx ns default
-                 else default
+  | Leaf _ ns =>
+    match (idx , ns) with
+    | (0 , n0 :: _)                   => n0
+    | (1 , _  :: n1 :: _)             => n1
+    | (2 , _  :: _  :: n2 :: _)       => n2
+    | (3 , _  :: _  :: _  :: n3 :: _) => n3
+    | _ => default
+    end
   | Node ht szs trs =>
-    match trs with
-    | [] => default
-    | a :: rst =>
-      match @indexInNode A ht szs idx  with
-      | Some (slot' , idx') =>
-        let node := strong_nth slot' trs _
-        in get node idx default
-      | None => default
+    match indexInNode ht szs idx  with
+    | Some (slot' , idx') =>
+      match (slot' , trs) with
+      | (_ , [])                        => default
+      | (0 , t0 :: _)                   => get t0 idx' default
+      | (1 , _  :: t1 :: _)             => get t1 idx' default
+      | (2 , _  :: _  :: t2 :: _)       => get t2 idx' default
+      | (3 , _  :: _  :: _  :: t3 :: _) => get t3 idx' default
+      | _ => default
       end
+    | None => default
     end
   end.
-  Admit Obligations.
+
+
+Lemma lookup_empty : forall {A : Set} (tr : @vector nat), get empty_vec 0 100 = 100.
+Proof. intros. unfold empty_vec. unfold get. simpl. auto. Qed.
 
 
 (* ---------------------------------- *)
@@ -292,13 +252,8 @@ Definition snoc {A : Set} (tr : vector) (v : A) : vector :=
 
 
 (* ---------------------------------- *)
-(* -- Other common operations         *)
+(* -- to/from list                    *)
 (* ---------------------------------- *)
-
-Definition empty_vec {A : Set} : (@vector A) := Node 1 [] [].
-
-Definition is_vec_empty {A : Set} (tr : @vector A) : bool :=
-  vec_length tr =? 0.
 
 Fixpoint go_toList {A : Set} (tr : @vector A) (acc : list A) : list A :=
   match tr with

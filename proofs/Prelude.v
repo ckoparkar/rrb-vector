@@ -39,15 +39,11 @@ Definition strong_head {A : Type} : forall ls : list A, ls <> [] -> A.
   congruence.
 Defined.
 
-Definition strong_last {A : Type} : forall ls : list A, ls <> [] -> A.
-  refine (fix f (ls : list A) :=
-            match ls with
-            | []       => fun pf  => _
-            | a :: rst => fun _   => last rst a
-            end).
-  (* [] *)
-  congruence.
-Defined.
+Program Fixpoint strong_last {A : Type} (ls : list A) (pf : ls <> []) : A :=
+  match ls with
+  | []       => _
+  | a :: rst => last rst a
+  end.
 
 Definition strong_nth :
   forall {A : Set} (idx : nat) (ls : list A), idx < length ls -> A.
@@ -63,15 +59,6 @@ Definition strong_nth :
   (* S m , [] *)
   + simpl in pf. omega.
 Defined.
-
-Definition strong_last_In {A : Type} : forall (xs : list A) (x : A) (pf : xs <> []),
-  x = strong_last xs pf -> In x xs.
-Proof. Admitted.
-
-Definition strong_nth_In :
-  forall {A : Set} (idx : nat) (xs : list A) (x : A) (pf : idx < length xs),
-  x = strong_nth idx xs pf -> In x xs.
-Proof. Admitted.
 
 Lemma skipn_nil : forall A m, skipn m (@nil A) = (@nil A).
 Proof. induction m ; auto. Qed.

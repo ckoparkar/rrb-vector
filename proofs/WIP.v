@@ -246,3 +246,75 @@ Definition tryBottom_back {A : Set} (v1 : A) : (@vector A) -> option (@vector A)
     Admitted.
 
 *)
+
+
+(*
+
+Definition vec_length {A : Set} (tr : @vector A) : nat :=
+  match tr with
+  | Leaf szs ns  => length szs
+  | Node _ szs _ => match szs with
+                    | [] => 0
+                    | a :: rst => strong_last (a :: rst) (cons_not_nil a rst)
+                    end
+  end.
+
+Lemma vec_length_sizes {A : Set} :
+  forall (tr : vector),  (vec_length tr > 0) -> (@get_sizes A tr) <> [].
+Proof.
+  intros. induction tr.
+  + unfold vec_length in H. unfold get_sizes.
+    apply length_gt_zero_iff_not_nil. apply H.
+  + unfold get_sizes. unfold vec_length in H.
+    induction l.
+    - apply zero_gt_zero_false in H. unfold not. intro. apply H.
+    - apply cons_not_nil.
+Qed.
+
+Lemma vec_length_leaves_sizes {A : Set} :
+  forall (tr : vector) (szs : list size) (ns : list A),
+    tr = Leaf szs ns -> vec_length tr = length ns.
+Proof.
+  intros. remember tr as tr'. induction tr.
+  + rewrite H. unfold vec_length. apply leaf_sizes_elems with tr'. apply H.
+  + congruence.
+Qed.
+
+*)
+
+(*
+Definition strong_last_In {A : Type} : forall (xs : list A) (x : A) (pf : xs <> []),
+  x = strong_last xs pf -> In x xs.
+Proof.
+  intros. unfold strong_last in H. cbv in H. Admitted.
+
+Definition strong_nth_In :
+  forall {A : Set} (idx : nat) (xs : list A) (x : A) (pf : idx < length xs),
+  x = strong_nth idx xs pf -> In x xs.
+Proof. Admitted.
+
+*)
+
+(*
+
+(* Source: http://adam.chlipala.net/cpdt/html/GeneralRec.html *)
+Definition vec_length_order {A : Set} (tr1 tr2 : @vector A) :=
+  vec_length tr1 < vec_length tr2.
+
+Lemma vec_length_node_elems {A : Set} :
+  forall (tr : @vector A) (ht : height) (szs : list size) (trs : list vector) (tr2 : vector),
+    tr = Node ht szs trs -> In tr2 trs -> vec_length tr2 < vec_length tr.
+  Admitted.
+
+Hint Constructors Acc.
+
+Lemma vec_length_order_wf' :
+  forall len, forall A ls, vec_length ls <= len -> Acc (@vec_length_order A) ls.
+  unfold vec_length_order; induction len; crush.
+Defined.
+
+Theorem vec_length_order_wf {A : Set} : well_founded (@vec_length_order A).
+  red; intro; eapply vec_length_order_wf'; eauto.
+Defined.
+
+*)
