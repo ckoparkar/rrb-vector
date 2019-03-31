@@ -164,41 +164,25 @@ Definition indexInNode {A : Set}
                   Some (slot', idx')
   end.
 
-Definition get' {A : Set} (default : A) : (@vector A) -> nat -> A.
-  refine (Fix vec_length_order_wf
-           (fun _ => nat -> A)
-           (fun (tr : @vector A)
-                (get' : forall (tr' : @vector A), vec_length_order tr' tr -> nat -> A) =>
-              fun idx =>
-              (match tr as tr' return tr = tr' -> A with
-               | Leaf _ ns => fun tr_is_leaf =>
-                                if idx <? length ns
-                                then nth idx ns default
-                                else default
-               | Node ht szs trs =>
-                 fun tr_is_node =>
-                 (match trs as trs' return trs = trs' -> A with
-                 | [] => fun _ => default
-                 | a :: rst =>
-                   fun trs_not_nil =>
-                     match @indexInNode A ht szs idx  with
-                     | Some (slot' , idx') =>
-                       let node := strong_nth slot' trs _
-                       in get' node _ idx
-                     | None => default
-                     end
-                 end) (eq_refl trs)
-               end) (eq_refl tr))).
-  (* vec_length_order node tr *)
-  + rewrite tr_is_node. apply vec_length_node_elems with ht szs trs.
-    reflexivity. rewrite trs_not_nil.
-    (* apply (strong_nth_In slot' (a :: rst) node _). *)
-  Admitted.
-
-Global Transparent get'.
-
-Definition get {A : Set}
-  (tr : @vector A) (idx : nat) (default : A) : A := get' default tr idx.
+Program Fixpoint get {A : Set}
+  (tr : @vector A) (idx : nat) (default : A) {measure (vec_length tr)} : A :=
+  match tr with
+  | Leaf _ ns => if idx <? length ns
+                 then nth idx ns default
+                 else default
+  | Node ht szs trs =>
+    match trs with
+    | [] => default
+    | a :: rst =>
+      match @indexInNode A ht szs idx  with
+      | Some (slot' , idx') =>
+        let node := strong_nth slot' trs _
+        in get node idx default
+      | None => default
+      end
+    end
+  end.
+  Admit Obligations.
 
 
 (* ---------------------------------- *)
@@ -220,59 +204,42 @@ Inductive tmp_pair {A : Set} : Set :=
 | P : A -> (@vector A) -> tmp_pair.
 
 
-Definition tryBottom_back {A : Set} (v1 : A) : (@vector A) -> option (@vector A).
-  refine (Fix vec_length_order_wf
-            (fun _ => option (@vector A))
-            (fun (tr : @vector A)
-                 (try_bottom_back : forall (tr' : @vector A), vec_length_order tr' tr -> option (@vector A)) =>
-               ((match tr as tr' return tr = tr' -> option (@vector A) with
-               | Leaf szs ns =>
-                 fun _ =>
-                 if length ns <? m
-                 then Some (Leaf (szs ++ [1]) (ns ++ [v1]))
-                 else None
-               | Node ht szs trs =>
-                 fun tr_is_Node =>
-                 (match trs as trs' return trs = trs' -> option (@vector A) with
-                  | [] => fun _ => Some (Node ht [1] [mkLeafAtHeight (ht - 1) v1])
-                  | t :: ts  =>
-                    fun trs_not_nil =>
-                      (match szs as szs' return szs = szs' -> option (@vector A) with
-                       | [] => fun _ => None
-                       | s :: ss =>
-                         fun szs_not_nil =>
-                           let node_to_try := strong_last trs _ in
-                           match try_bottom_back node_to_try _ with
-                           | mb_vec => match mb_vec with
-                                       | Some has_v => let last_sz := strong_last szs _ in
-                                                       let szs' := removelast szs ++ [1 + last_sz] in
-                                                       let trs' := removelast trs ++ [has_v] in
-                                                       Some (Node ht szs' trs')
-                                       | None =>
-                                         if length trs <? m
-                                         then let branch  := mkLeafAtHeight (ht - 1) v1 in
-                                              let last_sz := strong_last szs _ in
-                                              let szs'    := szs ++ [1 + last_sz] in
-                                              let trs'    := trs ++ [branch]
-                                              in Some (Node ht szs' trs')
-                                         else None
-                                       end
-                           end
-                       end) (eq_refl szs)
-                  end) (eq_refl trs)
-               end) (eq_refl tr) ))).
-  Unshelve.
-  (* szs <> [] *)
-  + rewrite szs_not_nil. apply (cons_not_nil s ss).
-  + rewrite szs_not_nil. apply (cons_not_nil s ss).
-  (* trs <> [] *)
-  + rewrite trs_not_nil. apply (cons_not_nil t ts).
-  (* vec_length node_to_try < vec_length trs *)
-  + unfold vec_length_order. rewrite tr_is_Node. rewrite trs_not_nil.
-    assert (H: In node_to_try (t :: ts)).
-    { apply (strong_last_In (t :: ts) node_to_try (cons_not_nil t ts)).
-      apply node_to_try. }
-    Admitted.
+Program Fixpoint tryBottom_back {A : Set}
+  (v1 : A) (tr : @vector A) {measure (vec_length tr)} : option (@vector A) :=
+  match tr with
+  | Leaf szs ns =>
+    if length ns <? m
+    then Some (Leaf (szs ++ [1]) (ns ++ [v1]))
+    else None
+  | Node ht szs trs =>
+    match trs with
+    | [] => Some (Node ht [1] [mkLeafAtHeight (ht - 1) v1])
+    | t :: ts  =>
+      match szs with
+      | [] => None
+      | s :: ss =>
+        let node_to_try := strong_last trs _ in
+        match tryBottom_back v1 node_to_try with
+        | mb_vec => match mb_vec with
+                    | Some has_v => let last_sz := strong_last szs _ in
+                                    let szs' := removelast szs ++ [1 + last_sz] in
+                                    let trs' := removelast trs ++ [has_v] in
+                                    Some (Node ht szs' trs')
+                    | None =>
+                      if length trs <? m
+                      then let branch  := mkLeafAtHeight (ht - 1) v1 in
+                           let last_sz := strong_last szs _ in
+                           let szs'    := szs ++ [1 + last_sz] in
+                           let trs'    := trs ++ [branch]
+                           in Some (Node ht szs' trs')
+                      else None
+                    end
+        end
+      end
+    end
+  end.
+  Admit Obligations.
+
 
 Fixpoint tryBottom_front {A : Set} (v1 : A) (tr : @vector A) : option (@vector A) :=
   match tr with
