@@ -115,7 +115,7 @@ Definition indexInNode
                   Some (slot', idx')
   end.
 
-Fixpoint get {A : Set} (tr : @vector A) (idx : nat) (default : A) : A :=
+Fixpoint get {A : Set} (tr : vector) (idx : nat) (default : A) : A :=
   match tr with
   | Leaf _ ns =>
     match (idx , ns) with
@@ -123,7 +123,7 @@ Fixpoint get {A : Set} (tr : @vector A) (idx : nat) (default : A) : A :=
     | (1 , _  :: n1 :: _)             => n1
     | (2 , _  :: _  :: n2 :: _)       => n2
     | (3 , _  :: _  :: _  :: n3 :: _) => n3
-    | _ => default
+    | _                               => default
     end
   | Node ht szs trs =>
     match indexInNode ht szs idx  with
@@ -134,14 +134,13 @@ Fixpoint get {A : Set} (tr : @vector A) (idx : nat) (default : A) : A :=
       | (1 , _  :: t1 :: _)             => get t1 idx' default
       | (2 , _  :: _  :: t2 :: _)       => get t2 idx' default
       | (3 , _  :: _  :: _  :: t3 :: _) => get t3 idx' default
-      | _ => default
+      | _                               => default
       end
     | None => default
     end
   end.
 
-
-Lemma lookup_empty : forall {A : Set} (tr : @vector nat), get empty_vec 0 100 = 100.
+Lemma get_empty : forall {A : Set} (tr : @vector A), get empty_vec 0 100 = 100.
 Proof. intros. unfold empty_vec. unfold get. simpl. auto. Qed.
 
 
@@ -157,11 +156,9 @@ Fixpoint mkLeafAtHeight {A : Set} (ht : height) (v1 : A) : (vector) :=
   | S n => Node ht [1] [mkLeafAtHeight n v1]
   end.
 
+
 Definition join {A : Set} (a : @vector A) (b : @vector A) : (@vector A) :=
   Node (get_height a + 1) [ vec_length a ; (vec_length a + vec_length b) ] [a ; b].
-
-Inductive tmp_pair {A : Set} : Set :=
-| P : A -> (@vector A) -> tmp_pair.
 
 
 Program Fixpoint tryBottom_back {A : Set}
