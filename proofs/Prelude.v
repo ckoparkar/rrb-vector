@@ -64,66 +64,18 @@ Definition strong_nth :
   + simpl in pf. omega.
 Defined.
 
+Definition strong_last_In {A : Type} : forall (xs : list A) (x : A) (pf : xs <> []),
+  x = strong_last xs pf -> In x xs.
+Proof. Admitted.
+
+Definition strong_nth_In :
+  forall {A : Set} (idx : nat) (xs : list A) (x : A) (pf : idx < length xs),
+  x = strong_nth idx xs pf -> In x xs.
+Proof. Admitted.
+
 Lemma skipn_nil : forall A m, skipn m (@nil A) = (@nil A).
-Proof.
-  intros. induction m.
-  + reflexivity.
-  + reflexivity.
-Qed.
+Proof. induction m ; auto. Qed.
 
-Lemma skipn_cons :
-  forall {A : Set} (m : nat) (xs : list A) (x : A),
-  length (skipn m (x :: xs)) = length (skipn m xs) + 1.
-Proof.
-  intros. induction m.
-  + simpl. omega.
-  + simpl. Admitted.
-(* Qed. *)
-
-Lemma length_not_empty_inv {A B : Set} :
-  forall (xs : list A) (ys : list B),
-  length xs = length ys -> xs <> [] -> ys <> [].
-Proof. Admitted.
-
-(*
-
-Lemma length_not_zero_inv {A : Set} :
-  forall (xs : list A),  length xs <> 0 -> xs <> [].
-Proof.
-  intros. induction xs.
-  + unfold length in H. congruence.
-  + apply (cons_not_empty a xs).
-Qed.
-
-Lemma length_zero_inv {A : Set} :
-  forall (xs : list A),  length xs = 0 -> xs = [].
-Proof.
-  intros. induction xs.
-  + reflexivity.
-  + apply length_zero_iff_nil. apply H.
-Qed.
-
-Lemma length_not_zero_inv_inv {A : Set} :
-  forall (xs : list A), xs <> [] -> length xs <> 0.
-Proof.
-  intros. induction xs.
-  + congruence.
-  + unfold length. apply Nat.neq_succ_0.
-Qed.
-
-*)
-
-Lemma skipn_length : forall {A : Set}
-  (ls : list A) (n : nat), length (skipn n ls) = length ls - n.
-Proof.
-  intros. induction ls.
-  + simpl. rewrite skipn_nil. reflexivity.
-  + rewrite skipn_cons.
-Admitted.
-
-Lemma skipn_not_nil : forall {A : Set}
-  (ls : list A) (n : nat), n < length ls -> ls <> [] -> skipn n ls <> [].
-Proof. Admitted.
 
 Lemma min_eq : forall n, min n n = n.
 Proof.

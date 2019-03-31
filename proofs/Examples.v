@@ -79,6 +79,8 @@ Definition tree17_cons : vector :=
                   ; Leaf [1 ; 1 ; 1 ; 1] [9 ; 10 ; 11 ; 12]
                   ; Leaf [1 ; 1 ; 1 ; 1] [13 ; 14 ; 15 ; 16]
                   ]
-       ].
+         ].
+
+Compute (fromList (seq 1 2)).
 
 Compute (toList (fromList (seq 1 17))).
