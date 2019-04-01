@@ -45,24 +45,27 @@ Definition get_height {A : Set} (tr : @vector A) : nat :=
   | Node ht _ _ => ht
   end.
 
-(* Should these things be written down as specs instead ? *)
+Definition get_elems_len {A : Set} (tr : @vector A) : nat :=
+  match tr with
+  | Leaf _ ns    => length ns
+  | Node _ _ trs => length trs
+  end.
 
-Axiom leaf_sizes_elems :
-  forall {A : Set} (szs : list size) (ns : list A) (tr : @vector A),
-  tr = Leaf szs ns -> length szs = length ns.
+Definition get_sizes_len {A : Set} (tr : @vector A) : nat :=
+  match tr with
+  | Leaf szs _   => length szs
+  | Node _ szs _ => length szs
+  end.
 
-Axiom leaf_sizes_elems_m :
-  forall {A : Set} (szs : list size) (ns : list A) (tr : @vector A),
-  tr = Leaf szs ns -> length ns <= m.
+(* ---------------------------------- *)
+(* -- Invariants                      *)
+(* ---------------------------------- *)
 
-Axiom node_sizes_elems : forall {A : Set}
-  (ht : nat) (szs : list size) (trs : list (@vector A)) (tr : @vector A),
-  tr = Node ht szs trs -> length szs = length trs.
-
-Axiom node_sizes_elems_m : forall {A : Set}
-  (ht : nat) (szs : list size) (trs : list (@vector A)) (tr : @vector A),
-   tr = Node ht szs trs -> length trs <= m.
-
+(* Most likely, this single invariant is not going to be enough.
+   I'll update this type as I start writing proofs. *)
+Inductive is_RRB {A : Set} : @vector A -> Prop :=
+| Inv1 :
+    forall v, get_sizes_len v = get_elems_len v -> get_sizes_len v < m -> is_RRB v.
 
 (* ---------------------------------- *)
 (* -- Common operations               *)
@@ -263,3 +266,25 @@ Definition toList {A : Set} (tr : @vector A) : list A :=
 
 Definition fromList {A : Set} (xs : list A) : (@vector A) :=
   fold_left (fun x acc => snoc x acc) xs empty_vec.
+
+(* ---------------------------------- *)
+(* -- Theorems                        *)
+(* ---------------------------------- *)
+
+Lemma prop_length : forall ls : list nat, length ls = vec_length (fromList ls).
+Proof. Admitted.
+
+Lemma prop_fromList_toList_inv : forall ls : list nat, toList (fromList ls) = ls.
+Proof. Admitted.
+
+Lemma prop_get_ordered_list :
+  forall n m, n > 1 -> m <= n -> get (fromList (seq 1 n)) m 100 = m+1.
+Proof. Admitted.
+
+Lemma prop_get_insert :
+  forall (m : nat), get (cons empty_vec m) 0 100 = m.
+Proof. intros. simpl. reflexivity. Qed.
+
+(* These are the quickcheck properties I wrote down for Assignment1.
+   What I'd really like is to try to prove O(..) bounds, like we did for
+   RedBlack trees in class. *)

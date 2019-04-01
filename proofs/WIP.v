@@ -191,6 +191,7 @@ Global Transparent get'.
 
 Definition get {A : Set}
   (tr : @vector A) (idx : nat) (default : A) : A := get' default tr idx.
+
 Definition tryBottom_back {A : Set} (v1 : A) : (@vector A) -> option (@vector A).
   refine (Fix vec_length_order_wf
             (fun _ => option (@vector A))
@@ -316,5 +317,27 @@ Defined.
 Theorem vec_length_order_wf {A : Set} : well_founded (@vec_length_order A).
   red; intro; eapply vec_length_order_wf'; eauto.
 Defined.
+
+*)
+
+(* Should these things be written down as specs instead ? *)
+
+(*
+
+Axiom leaf_sizes_elems :
+  forall {A : Set} (szs : list size) (ns : list A) (tr : @vector A),
+  tr = Leaf szs ns -> length szs = length ns.
+
+Axiom leaf_sizes_elems_m :
+  forall {A : Set} (szs : list size) (ns : list A) (tr : @vector A),
+  tr = Leaf szs ns -> length ns <= m.
+
+Axiom node_sizes_elems : forall {A : Set}
+  (ht : nat) (szs : list size) (trs : list (@vector A)) (tr : @vector A),
+  tr = Node ht szs trs -> length szs = length trs.
+
+Axiom node_sizes_elems_m : forall {A : Set}
+  (ht : nat) (szs : list size) (trs : list (@vector A)) (tr : @vector A),
+   tr = Node ht szs trs -> length trs <= m.
 
 *)

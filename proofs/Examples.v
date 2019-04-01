@@ -81,7 +81,6 @@ Definition tree17_cons : vector :=
                   ]
          ].
 
-
 Definition test1 : toList tree10 = (seq 1 10).
 Proof. reflexivity. Qed.
 
@@ -123,3 +122,17 @@ Proof. reflexivity. Qed.
 
 Definition test14 : get (@empty_vec nat) 0 100 = 100.
 Proof. reflexivity. Qed.
+
+Lemma tree10_isRRB : @is_RRB nat tree10.
+Proof.
+  apply Inv1.
+  + simpl. reflexivity.
+  + simpl. auto.
+Qed.
+
+Lemma empty_isRRB : @is_RRB nat empty_vec.
+Proof.
+  apply Inv1.
+  + simpl. reflexivity.
+  + simpl. unfold m. auto.
+Qed.
