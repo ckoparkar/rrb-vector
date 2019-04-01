@@ -60,7 +60,7 @@ Definition tree_ub3 : vector :=
 
 Definition tree17 : vector :=
   Node 2 [16 ; 17]
-         [ Node 1 [4 ; 8 ; 10]
+         [ Node 1 [4 ; 8 ; 12 ; 16]
                 [ Leaf [1 ; 1 ; 1 ; 1] [1 ; 2 ; 3 ; 4]
                 ; Leaf [1 ; 1 ; 1 ; 1] [5 ; 6 ; 7 ; 8]
                 ; Leaf [1 ; 1 ; 1 ; 1] [9 ; 10 ; 11 ; 12]
@@ -80,3 +80,46 @@ Definition tree17_cons : vector :=
                   ; Leaf [1 ; 1 ; 1 ; 1] [13 ; 14 ; 15 ; 16]
                   ]
          ].
+
+
+Definition test1 : toList tree10 = (seq 1 10).
+Proof. reflexivity. Qed.
+
+Definition test2 : toList tree20 = (seq 1 20).
+Proof. reflexivity. Qed.
+
+Definition test3 : fromList (seq 1 10) = tree10.
+Proof. reflexivity. Qed.
+
+Definition test4 : fromList (seq 1 20) = tree20.
+Proof. reflexivity. Qed.
+
+Definition test5 : vec_length tree10 = 10.
+Proof. reflexivity. Qed.
+
+Definition test6 : vec_length tree20 = 20.
+Proof. reflexivity. Qed.
+
+Definition test7 : get (fromList (seq 1 10)) 0 100 = 1.
+Proof. reflexivity. Qed.
+
+Definition test8 : get (fromList (seq 1 10)) 9 100 = 10.
+Proof. reflexivity. Qed.
+
+Definition test9 : get (fromList (seq 1 10)) 10 100 = 100.
+Proof. reflexivity. Qed.
+
+Definition test10 : cons (fromList (seq 1 16)) 17 = tree17_cons.
+Proof. reflexivity. Qed.
+
+Definition test11 : snoc (fromList (seq 1 16)) 17 = tree17.
+Proof. reflexivity. Qed.
+
+Definition test12 : vec_length (fromList (seq 1 16)) = 16.
+Proof. reflexivity. Qed.
+
+Definition test13 : vec_length (@empty_vec nat) = 0.
+Proof. reflexivity. Qed.
+
+Definition test14 : get (@empty_vec nat) 0 100 = 100.
+Proof. reflexivity. Qed.
