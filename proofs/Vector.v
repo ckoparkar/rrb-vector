@@ -11,6 +11,7 @@ From Coq Require Import Bool.Bool.
 From RRB Require Import Prelude.
 From RRB Require Import Crush.
 
+
 (* -------------------------------------------------------------------------- *)
 
 (* Branching factor *)
@@ -146,6 +147,10 @@ Fixpoint get {A : Set} (tr : vector) (idx : nat) (default : A) : A :=
 Lemma get_empty : forall {A : Set} (tr : @vector A), get empty_vec 0 100 = 100.
 Proof. intros. unfold empty_vec. unfold get. simpl. auto. Qed.
 
+(* ---------------------------------- *)
+(* -- Update                          *)
+(* ---------------------------------- *)
+
 
 (* ---------------------------------- *)
 (* -- Insert front/back               *)
@@ -250,7 +255,6 @@ Definition cons {A : Set} (tr : vector) (v : A) : vector :=
 Definition snoc {A : Set} (tr : vector) (v : A) : vector :=
   insert Back tr v.
 
-
 (* ---------------------------------- *)
 (* -- to/from list                    *)
 (* ---------------------------------- *)
@@ -265,7 +269,14 @@ Definition toList {A : Set} (tr : @vector A) : list A :=
   go_toList tr [].
 
 Definition fromList {A : Set} (xs : list A) : (@vector A) :=
-  fold_left (fun x acc => snoc x acc) xs empty_vec.
+  fold_left (fun acc x => snoc acc x) xs empty_vec.
+
+(* ---------------------------------- *)
+(* -- concat                          *)
+(* ---------------------------------- *)
+
+Definition concat {A : Set} (a : @vector A) (b : @vector A) : @vector A :=
+  fold_left (fun acc x => snoc acc x) (toList b) a.
 
 (* ---------------------------------- *)
 (* -- Theorems                        *)
@@ -286,5 +297,5 @@ Lemma prop_get_insert :
 Proof. intros. simpl. reflexivity. Qed.
 
 (* These are the quickcheck properties I wrote down for Assignment1.
-   What I'd really like is to try to prove O(..) bounds, like we did for
+   I'm going to at least try to prove O(..) bounds, like we did for
    RedBlack trees in class. *)
