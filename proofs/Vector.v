@@ -169,8 +169,8 @@ Definition join {A : Set} (a : @vector A) (b : @vector A) : (@vector A) :=
   Node (get_height a + 1) [ vec_length a ; (vec_length a + vec_length b) ] [a ; b].
 
 
-Program Fixpoint tryBottom_back {A : Set}
-  (v1 : A) (tr : @vector A) {measure (vec_length tr)} : option (@vector A) :=
+Fixpoint tryBottom_back {A : Set}
+  (fuel : nat) (v1 : A) (tr : @vector A) {struct fuel} : option (@vector A) :=
   match tr with
   | Leaf szs ns =>
     if length ns <? m
@@ -183,27 +183,30 @@ Program Fixpoint tryBottom_back {A : Set}
       match szs with
       | [] => None
       | s :: ss =>
-        let node_to_try := strong_last trs _ in
-        match tryBottom_back v1 node_to_try with
-        | mb_vec => match mb_vec with
-                    | Some has_v => let last_sz := strong_last szs _ in
-                                    let szs' := removelast szs ++ [1 + last_sz] in
-                                    let trs' := removelast trs ++ [has_v] in
-                                    Some (Node ht szs' trs')
-                    | None =>
-                      if length trs <? m
-                      then let branch  := mkLeafAtHeight (ht - 1) v1 in
-                           let last_sz := strong_last szs _ in
-                           let szs'    := szs ++ [1 + last_sz] in
-                           let trs'    := trs ++ [branch]
-                           in Some (Node ht szs' trs')
-                      else None
-                    end
+        let node_to_try := last ts t in
+        match fuel with
+        | O => None
+        | S n =>
+          match tryBottom_back n v1 node_to_try with
+          | mb_vec => match mb_vec with
+                      | Some has_v => let last_sz := last ss s in
+                                      let szs' := removelast szs ++ [1 + last_sz] in
+                                      let trs' := removelast trs ++ [has_v] in
+                                      Some (Node ht szs' trs')
+                      | None =>
+                        if length trs <? m
+                        then let branch  := mkLeafAtHeight (ht - 1) v1 in
+                             let last_sz := last ss s in
+                             let szs'    := szs ++ [1 + last_sz] in
+                             let trs'    := trs ++ [branch]
+                             in Some (Node ht szs' trs')
+                        else None
+                      end
+          end
         end
       end
     end
   end.
-  Admit Obligations.
 
 
 Fixpoint tryBottom_front {A : Set} (v1 : A) (tr : @vector A) : option (@vector A) :=
@@ -242,7 +245,8 @@ Definition insert {A : Set} (whr : wherE) (tr : vector) (v : A) : vector :=
              | Some has_v => has_v
              | None       => join (mkLeafAtHeight (get_height tr) v) tr
              end
-  | Back  => match tryBottom_back v tr with
+  (* tryBottom_back should only need (log tr) fuel, so this should be enough. *)
+  | Back  => match tryBottom_back (vec_length tr) v tr with
              | Some has_v => has_v
              | None       => join tr (mkLeafAtHeight (get_height tr) v)
              end
