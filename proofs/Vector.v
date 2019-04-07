@@ -109,14 +109,18 @@ Fixpoint mb_check_slot
 
 Definition indexInNode
   (ht : height) (szs : list size) (idx : nat) : option (nat * nat) :=
-  let slot     := index_of ht idx in
-  let mb_slot' := mb_check_slot (skipn slot (combine szs (seq 0 (length szs)))) slot in
-  match mb_slot' with
-  | None => None
-  | Some slot' => let idx':= idx - (if slot' =? 0
-                                    then 0
-                                    else nth (slot' - 1) szs 0) in
-                  Some (slot', idx')
+  match szs with
+  | [] => None
+  | _  =>
+    let slot     := index_of ht idx in
+    let mb_slot' := mb_check_slot (skipn slot (combine szs (seq 0 (length szs)))) slot in
+    match mb_slot' with
+    | None => None
+    | Some slot' => let idx':= idx - (if slot' =? 0
+                                      then 0
+                                      else nth (slot' - 1) szs 0) in
+                    Some (slot', idx')
+    end
   end.
 
 Fixpoint get {A : Type} (idx : nat) (tr : vector1) (default : A) : A :=
@@ -303,3 +307,23 @@ Proof. intros. simpl. reflexivity. Qed.
 (* These are the quickcheck properties I wrote down for Assignment1.
    I'm going to at least try to prove O(..) bounds, like we did for
    RedBlack trees in class. *)
+
+
+(* ---------------------------------- *)
+(* -- Abs                             *)
+(* ---------------------------------- *)
+
+Inductive Abs {A : Type} : @vector1 A -> (list A) -> Prop :=
+| Abs_E : Abs empty_vec []
+| Abs_C: forall a b l v r,
+      Abs l a ->
+      Abs r b ->
+      Abs (snoc (concat l r) v) (snoc_list (a ++ b) v).
+
+Theorem get_relate:
+  forall {A : Type} n v1 v2 d,
+    Abs v1 v2 -> @get A n v1 d = nth n v2 d.
+Proof.
+  intros. induction H.
+  + simpl ; destruct n ; reflexivity.
+  + Admitted.

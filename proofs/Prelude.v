@@ -70,3 +70,9 @@ Proof.
   + simpl. reflexivity.
   + simpl. rewrite IHn. reflexivity.
 Qed.
+
+Fixpoint snoc_list {A : Type} (ls : list A) (v : A) : list A :=
+  match ls with
+  | []      => [v]
+  | l :: ls => l :: (snoc_list ls v)
+  end.
