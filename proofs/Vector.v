@@ -119,7 +119,7 @@ Definition indexInNode
                   Some (slot', idx')
   end.
 
-Fixpoint get {A : Type} (tr : vector1) (idx : nat) (default : A) : A :=
+Fixpoint get {A : Type} (idx : nat) (tr : vector1) (default : A) : A :=
   match tr with
   | Leaf _ ns =>
     match (idx , ns) with
@@ -134,17 +134,17 @@ Fixpoint get {A : Type} (tr : vector1) (idx : nat) (default : A) : A :=
     | Some (slot' , idx') =>
       match (slot' , trs) with
       | (_ , [])                        => default
-      | (0 , t0 :: _)                   => get t0 idx' default
-      | (1 , _  :: t1 :: _)             => get t1 idx' default
-      | (2 , _  :: _  :: t2 :: _)       => get t2 idx' default
-      | (3 , _  :: _  :: _  :: t3 :: _) => get t3 idx' default
+      | (0 , t0 :: _)                   => get idx' t0 default
+      | (1 , _  :: t1 :: _)             => get idx' t1 default
+      | (2 , _  :: _  :: t2 :: _)       => get idx' t2 default
+      | (3 , _  :: _  :: _  :: t3 :: _) => get idx' t3 default
       | _                               => default
       end
     | None => default
     end
   end.
 
-Lemma get_empty : forall {A : Type} (tr : @vector1 A), get empty_vec 0 100 = 100.
+Lemma get_empty : forall {A : Type} (tr : @vector1 A), get 0 empty_vec 100 = 100.
 Proof. intros. unfold empty_vec. unfold get. simpl. auto. Qed.
 
 (* ---------------------------------- *)
@@ -293,11 +293,11 @@ Lemma prop_fromList_toList_inv : forall ls : list nat, toList (fromList ls) = ls
 Proof. Admitted.
 
 Lemma prop_get_ordered_list :
-  forall n m, n > 1 -> m <= n -> get (fromList (seq 1 n)) m 100 = m+1.
+  forall n m, n > 1 -> m <= n -> get m (fromList (seq 1 n)) 100 = m+1.
 Proof. Admitted.
 
 Lemma prop_get_insert :
-  forall (m : nat), get (cons empty_vec m) 0 100 = m.
+  forall (m : nat), get 0 (cons empty_vec m) 100 = m.
 Proof. intros. simpl. reflexivity. Qed.
 
 (* These are the quickcheck properties I wrote down for Assignment1.

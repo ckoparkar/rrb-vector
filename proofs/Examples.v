@@ -99,13 +99,13 @@ Proof. reflexivity. Qed.
 Definition test6 : vec_length tree20 = 20.
 Proof. reflexivity. Qed.
 
-Definition test7 : get (fromList (seq 1 10)) 0 100 = 1.
+Definition test7 : get 0 (fromList (seq 1 10)) 100 = 1.
 Proof. reflexivity. Qed.
 
-Definition test8 : get (fromList (seq 1 10)) 9 100 = 10.
+Definition test8 : get 9 (fromList (seq 1 10)) 100 = 10.
 Proof. reflexivity. Qed.
 
-Definition test9 : get (fromList (seq 1 10)) 10 100 = 100.
+Definition test9 : get 10 (fromList (seq 1 10)) 100 = 100.
 Proof. reflexivity. Qed.
 
 Definition test10 : cons (fromList (seq 1 16)) 17 = tree17_cons.
@@ -120,7 +120,7 @@ Proof. reflexivity. Qed.
 Definition test13 : vec_length (@empty_vec nat) = 0.
 Proof. reflexivity. Qed.
 
-Definition test14 : get (@empty_vec nat) 0 100 = 100.
+Definition test14 : get 0 (@empty_vec nat) 100 = 100.
 Proof. reflexivity. Qed.
 
 Lemma tree10_isRRB : @is_RRB nat tree10.
