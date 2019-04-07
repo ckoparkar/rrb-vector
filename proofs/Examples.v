@@ -6,14 +6,14 @@ From RRB Require Import Vector.
 
 (* -------------------------------------------------------------------------- *)
 
-Definition tree10 : vector :=
+Definition tree10 : vector1 :=
   Node 1 [4 ; 8 ; 10]
        [ Leaf [1 ; 1 ; 1 ; 1] [1 ; 2 ; 3 ; 4]
        ; Leaf [1 ; 1 ; 1 ; 1] [5 ; 6 ; 7 ; 8]
        ; Leaf [1 ; 1]         [9 ; 10]
        ].
 
-Definition tree20 : vector :=
+Definition tree20 : vector1 :=
   Node 2 [16 ; 20]
          [ Node 1 [4 ; 8 ; 12 ; 16]
                 [ Leaf [1 ; 1 ; 1 ; 1] [1 ; 2 ; 3 ; 4]
@@ -26,7 +26,7 @@ Definition tree20 : vector :=
                 ]
        ].
 
-Definition tree_ub : vector :=
+Definition tree_ub : vector1 :=
   Node 2 [9 ; 21]
          [ Node 1 [3 ; 6 ; 9]
                 [ Leaf [1 ; 1 ; 1] [1 ; 2 ; 3]
@@ -41,7 +41,7 @@ Definition tree_ub : vector :=
                 ]
        ].
 
-Definition tree_ub2 : vector :=
+Definition tree_ub2 : vector1 :=
   Node 1 [1 ; 3 ; 6 ; 10]
          [ Leaf [1]             [1]
          ; Leaf [1 ; 1]         [2 ; 3]
@@ -50,7 +50,7 @@ Definition tree_ub2 : vector :=
          ].
 
 
-Definition tree_ub3 : vector :=
+Definition tree_ub3 : vector1 :=
   Node 1 [1 ; 2 ; 3 ; 4]
        [ Leaf [1] [1]
        ; Leaf [1] [2]
@@ -58,7 +58,7 @@ Definition tree_ub3 : vector :=
        ; Leaf [1] [4]
        ].
 
-Definition tree17 : vector :=
+Definition tree17 : vector1 :=
   Node 2 [16 ; 17]
          [ Node 1 [4 ; 8 ; 12 ; 16]
                 [ Leaf [1 ; 1 ; 1 ; 1] [1 ; 2 ; 3 ; 4]
@@ -70,7 +70,7 @@ Definition tree17 : vector :=
                 [ Leaf [1] [17] ]
        ].
 
-Definition tree17_cons : vector :=
+Definition tree17_cons : vector1 :=
   Node 2 [1 ; 17]
          [ Node 1 [1] [ Leaf [1] [17] ]
          ; Node 1 [4 ; 8 ; 12 ; 16]

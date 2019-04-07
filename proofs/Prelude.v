@@ -18,7 +18,7 @@ Proof. congruence. Qed.
 Lemma cons_not_nil {A : Type} : forall (a : A) (ls : list A), (a :: ls) <> [].
 Proof. intros. congruence. Qed.
 
-Lemma length_gt_zero_iff_not_nil {A : Set} (l : list A): length l > 0 <-> l <> [].
+Lemma length_gt_zero_iff_not_nil {A : Type} (l : list A): length l > 0 <-> l <> [].
 Proof.
   intros. split.
   + destruct l.
@@ -46,8 +46,8 @@ Program Fixpoint strong_last {A : Type} (ls : list A) (pf : ls <> []) : A :=
   end.
 
 Definition strong_nth :
-  forall {A : Set} (idx : nat) (ls : list A), idx < length ls -> A.
-  refine (fix f {A : Set} (idx : nat) (ls : list A) :=
+  forall {A : Type} (idx : nat) (ls : list A), idx < length ls -> A.
+  refine (fix f {A : Type} (idx : nat) (ls : list A) :=
               match idx, ls with
               | 0   , []       => fun pf => _
               | S m , []       => fun pf => _

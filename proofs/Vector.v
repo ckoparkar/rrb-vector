@@ -26,33 +26,33 @@ Definition height := nat.
 Definition size := nat.
 
 (* The main datatype. *)
-Inductive tree {A : Set} : Set :=
+Inductive tree {A : Type} : Type :=
 | Leaf : list size -> list A -> tree
 | Node : height -> list size -> list tree -> tree.
 
 (* The type exported out of this module *)
-Definition vector {A : Set} := tree (A := A).
+Definition vector1 {A : Type} := tree (A := A).
 
 (* Well this is technically not correct (Leaf doesn't have sizes), but OK for now. *)
-Definition get_sizes {A : Set} (tr : @vector A) : list nat :=
+Definition get_sizes {A : Type} (tr : @vector1 A) : list nat :=
   match tr with
   | Leaf szs _   => szs
   | Node _ szs _ => szs
   end.
 
-Definition get_height {A : Set} (tr : @vector A) : nat :=
+Definition get_height {A : Type} (tr : @vector1 A) : nat :=
   match tr with
   | Leaf _ _    => 0
   | Node ht _ _ => ht
   end.
 
-Definition get_elems_len {A : Set} (tr : @vector A) : nat :=
+Definition get_elems_len {A : Type} (tr : @vector1 A) : nat :=
   match tr with
   | Leaf _ ns    => length ns
   | Node _ _ trs => length trs
   end.
 
-Definition get_sizes_len {A : Set} (tr : @vector A) : nat :=
+Definition get_sizes_len {A : Type} (tr : @vector1 A) : nat :=
   match tr with
   | Leaf szs _   => length szs
   | Node _ szs _ => length szs
@@ -64,7 +64,7 @@ Definition get_sizes_len {A : Set} (tr : @vector A) : nat :=
 
 (* Most likely, this single invariant is not going to be enough.
    I'll update this type as I start writing proofs. *)
-Inductive is_RRB {A : Set} : @vector A -> Prop :=
+Inductive is_RRB {A : Type} : @vector1 A -> Prop :=
 | Inv1 :
     forall v, get_sizes_len v = get_elems_len v -> get_sizes_len v < m -> is_RRB v.
 
@@ -73,7 +73,7 @@ Inductive is_RRB {A : Set} : @vector A -> Prop :=
 (* ---------------------------------- *)
 
 (* Inefficient, but easier to write proofs. *)
-Fixpoint vec_length {A : Set} (tr : @vector A) : nat :=
+Fixpoint vec_length {A : Type} (tr : @vector1 A) : nat :=
   match tr with
   | Leaf szs ns  => length szs
   | Node _ _ trs => match trs with
@@ -84,9 +84,9 @@ Fixpoint vec_length {A : Set} (tr : @vector A) : nat :=
                     end
   end.
 
-Definition empty_vec {A : Set} : (@vector A) := Node 1 [] [].
+Definition empty_vec {A : Type} : (@vector1 A) := Node 1 [] [].
 
-Definition is_vec_empty {A : Set} (tr : @vector A) : bool :=
+Definition is_vec_empty {A : Type} (tr : @vector1 A) : bool :=
   vec_length tr =? 0.
 
 
@@ -119,7 +119,7 @@ Definition indexInNode
                   Some (slot', idx')
   end.
 
-Fixpoint get {A : Set} (tr : vector) (idx : nat) (default : A) : A :=
+Fixpoint get {A : Type} (tr : vector1) (idx : nat) (default : A) : A :=
   match tr with
   | Leaf _ ns =>
     match (idx , ns) with
@@ -144,7 +144,7 @@ Fixpoint get {A : Set} (tr : vector) (idx : nat) (default : A) : A :=
     end
   end.
 
-Lemma get_empty : forall {A : Set} (tr : @vector A), get empty_vec 0 100 = 100.
+Lemma get_empty : forall {A : Type} (tr : @vector1 A), get empty_vec 0 100 = 100.
 Proof. intros. unfold empty_vec. unfold get. simpl. auto. Qed.
 
 (* ---------------------------------- *)
@@ -158,19 +158,19 @@ Proof. intros. unfold empty_vec. unfold get. simpl. auto. Qed.
 
 Inductive wherE : Set := Front | Back.
 
-Fixpoint mkLeafAtHeight {A : Set} (ht : height) (v1 : A) : (vector) :=
+Fixpoint mkLeafAtHeight {A : Type} (ht : height) (v1 : A) : (vector1) :=
   match ht with
   | O => Leaf [1] [v1]
   | S n => Node ht [1] [mkLeafAtHeight n v1]
   end.
 
 
-Definition join {A : Set} (a : @vector A) (b : @vector A) : (@vector A) :=
+Definition join {A : Type} (a : @vector1 A) (b : @vector1 A) : (@vector1 A) :=
   Node (get_height a + 1) [ vec_length a ; (vec_length a + vec_length b) ] [a ; b].
 
 
-Fixpoint tryBottom_back {A : Set}
-  (fuel : nat) (v1 : A) (tr : @vector A) {struct fuel} : option (@vector A) :=
+Fixpoint tryBottom_back {A : Type}
+  (fuel : nat) (v1 : A) (tr : @vector1 A) {struct fuel} : option (@vector1 A) :=
   match tr with
   | Leaf szs ns =>
     if length ns <? m
@@ -209,7 +209,7 @@ Fixpoint tryBottom_back {A : Set}
   end.
 
 
-Fixpoint tryBottom_front {A : Set} (v1 : A) (tr : @vector A) : option (@vector A) :=
+Fixpoint tryBottom_front {A : Type} (v1 : A) (tr : @vector1 A) : option (@vector1 A) :=
   match tr with
   | Leaf szs ns =>
     if length ns <? m
@@ -239,7 +239,7 @@ Fixpoint tryBottom_front {A : Set} (v1 : A) (tr : @vector A) : option (@vector A
     end
   end.
 
-Definition insert {A : Set} (whr : wherE) (tr : vector) (v : A) : vector :=
+Definition insert {A : Type} (whr : wherE) (tr : vector1) (v : A) : vector1 :=
   match whr with
   | Front => match tryBottom_front v tr with
              | Some has_v => has_v
@@ -253,33 +253,33 @@ Definition insert {A : Set} (whr : wherE) (tr : vector) (v : A) : vector :=
   end.
 
 
-Definition cons {A : Set} (tr : vector) (v : A) : vector :=
+Definition cons {A : Type} (tr : vector1) (v : A) : vector1 :=
   insert Front tr v.
 
-Definition snoc {A : Set} (tr : vector) (v : A) : vector :=
+Definition snoc {A : Type} (tr : vector1) (v : A) : vector1 :=
   insert Back tr v.
 
 (* ---------------------------------- *)
 (* -- to/from list                    *)
 (* ---------------------------------- *)
 
-Fixpoint go_toList {A : Set} (tr : @vector A) (acc : list A) : list A :=
+Fixpoint go_toList {A : Type} (tr : @vector1 A) (acc : list A) : list A :=
   match tr with
   | Leaf _ ns    => ns ++ acc
   | Node _ _ trs => fold_right (fun t acc => go_toList t acc) acc trs
   end.
 
-Definition toList {A : Set} (tr : @vector A) : list A :=
+Definition toList {A : Type} (tr : @vector1 A) : list A :=
   go_toList tr [].
 
-Definition fromList {A : Set} (xs : list A) : (@vector A) :=
+Definition fromList {A : Type} (xs : list A) : (@vector1 A) :=
   fold_left (fun acc x => snoc acc x) xs empty_vec.
 
 (* ---------------------------------- *)
 (* -- concat                          *)
 (* ---------------------------------- *)
 
-Definition concat {A : Set} (a : @vector A) (b : @vector A) : @vector A :=
+Definition concat {A : Type} (a : @vector1 A) (b : @vector1 A) : @vector1 A :=
   fold_left (fun acc x => snoc acc x) (toList b) a.
 
 (* ---------------------------------- *)
