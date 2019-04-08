@@ -151,6 +151,25 @@ Fixpoint get {A : Type} (idx : nat) (tr : vector1) (default : A) : A :=
 Lemma get_empty : forall {A : Type} (tr : @vector1 A), get 0 empty_vec 100 = 100.
 Proof. intros. unfold empty_vec. unfold get. simpl. auto. Qed.
 
+(* Invariant: only rightmost node is allowed to be partially full. *)
+Fixpoint get_rb {A : Type} (idx : nat) (tr : @vector1 A) (default : A) : A :=
+  match tr with
+  | Leaf _ ns =>
+    let slot' := index_of 0 idx in
+    nth slot' ns default
+  | Node ht szs trs =>
+    let slot' := index_of ht idx in
+    match (slot' , trs) with
+    | (_ , [])                        => default
+    | (0 , t0 :: _)                   => get_rb idx t0 default
+    | (1 , _  :: t1 :: _)             => get_rb idx t1 default
+    | (2 , _  :: _  :: t2 :: _)       => get_rb idx t2 default
+    | (3 , _  :: _  :: _  :: t3 :: _) => get_rb idx t3 default
+    | _                               => default
+    end
+  end.
+
+
 (* ---------------------------------- *)
 (* -- Update                          *)
 (* ---------------------------------- *)
