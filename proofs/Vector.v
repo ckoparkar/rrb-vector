@@ -58,6 +58,8 @@ Definition get_sizes_len {A : Type} (tr : @vector1 A) : nat :=
   | Node _ szs _ => length szs
   end.
 
+Definition empty_vec {A : Type} : (@vector1 A) := Node 1 [] [].
+
 (* ---------------------------------- *)
 (* -- Invariants                      *)
 (* ---------------------------------- *)
@@ -66,7 +68,9 @@ Definition get_sizes_len {A : Type} (tr : @vector1 A) : nat :=
    I'll update this type as I start writing proofs. *)
 Inductive is_RRB {A : Type} : @vector1 A -> Prop :=
 | Inv1 :
-    forall v, get_sizes_len v = get_elems_len v -> get_sizes_len v < m -> is_RRB v.
+    forall v, get_sizes_len v = get_elems_len v -> get_sizes_len v < m -> is_RRB v
+| Inv2 :
+    forall v, v = empty_vec <-> get_elems_len v = 0 -> is_RRB v.
 
 (* ---------------------------------- *)
 (* -- Common operations               *)
@@ -84,7 +88,14 @@ Fixpoint vec_length {A : Type} (tr : @vector1 A) : nat :=
                     end
   end.
 
-Definition empty_vec {A : Type} : (@vector1 A) := Node 1 [] [].
+Definition vec_length2 {A : Set} (tr : @vector1 A) : nat :=
+  match tr with
+  | Leaf szs ns  => length szs
+  | Node _ szs _ => match szs with
+                    | [] => 0
+                    | a :: rst => strong_last (a :: rst) (cons_not_nil a rst)
+                    end
+  end.
 
 Definition is_vec_empty {A : Type} (tr : @vector1 A) : bool :=
   vec_length tr =? 0.
@@ -305,39 +316,17 @@ Definition fromList {A : Type} (xs : list A) : (@vector1 A) :=
 Definition concat {A : Type} (a : @vector1 A) (b : @vector1 A) : @vector1 A :=
   fold_left (fun acc x => snoc acc x) (toList b) a.
 
-(* ---------------------------------- *)
-(* -- Theorems                        *)
-(* ---------------------------------- *)
-
-Lemma prop_length : forall ls : list nat, length ls = vec_length (fromList ls).
-Proof. Admitted.
-
-Lemma prop_fromList_toList_inv : forall ls : list nat, toList (fromList ls) = ls.
-Proof. Admitted.
-
-Lemma prop_get_ordered_list :
-  forall n m, n > 1 -> m <= n -> get m (fromList (seq 1 n)) 100 = m+1.
-Proof. Admitted.
-
-Lemma prop_get_insert :
-  forall (m : nat), get 0 (cons empty_vec m) 100 = m.
-Proof. intros. simpl. reflexivity. Qed.
-
-(* These are the quickcheck properties I wrote down for Assignment1.
-   I'm going to at least try to prove O(..) bounds, like we did for
-   RedBlack trees in class. *)
-
 
 (* ---------------------------------- *)
 (* -- Abs                             *)
 (* ---------------------------------- *)
 
-Inductive Abs {A : Type} : @vector1 A -> (list A) -> Prop :=
+Inductive Abs {A : Type} : @vector1 A -> list A -> Prop :=
 | Abs_E : Abs empty_vec []
-| Abs_C: forall a b l v r,
-      Abs l a ->
-      Abs r b ->
-      Abs (snoc (concat l r) v) (snoc_list (a ++ b) v).
+| Abs_S : forall l1 v1 val,
+            is_RRB v1 ->
+            Abs v1 l1 -> Abs (snoc v1 val) (snoc_list l1 val).
+
 
 Theorem get_relate:
   forall {A : Type} n v1 v2 d,
@@ -346,3 +335,45 @@ Proof.
   intros. induction H.
   + simpl ; destruct n ; reflexivity.
   + Admitted.
+
+Theorem cons_relate:
+ forall {A : Type} vec ls val,
+     Abs vec ls -> Abs (@cons A vec val) (val :: ls).
+Proof.
+  intros. induction H.
+  + unfold empty_vec, cons, insert, tryBottom_front.
+    simpl. admit.
+Admitted.
+
+Theorem snoc_relate:
+ forall {A : Type} vec ls val,
+    Abs vec ls -> Abs (@snoc A vec val) (snoc_list ls val).
+Proof.
+  intros. Admitted.
+
+
+(* ---------------------------------- *)
+(* -- Theorems                        *)
+(* ---------------------------------- *)
+
+(* Lemma cons_is_cons : forall A a ls, fromList (a :: ls) = @cons A (fromList ls) a. *)
+(* Proof. *)
+(*   intros. induction ls. *)
+(*   + unfold fromList, fold_left, empty_vec. *)
+
+(* Lemma prop_length : forall ls : list nat, length ls = vec_length (fromList ls). *)
+(* Proof. *)
+(*   intros. induction ls. *)
+(*   + simpl. reflexivity. *)
+(*   + simpl. Admitted. *)
+
+(* Lemma prop_fromList_toList_inv : forall ls : list nat, toList (fromList ls) = ls. *)
+(* Proof. Admitted. *)
+
+(* Lemma prop_get_ordered_list : *)
+(*   forall n m, n > 1 -> m <= n -> get m (fromList (seq 1 n)) 100 = m+1. *)
+(* Proof. Admitted. *)
+
+(* Lemma prop_get_insert : *)
+(*   forall (m : nat), get 0 (cons empty_vec m) 100 = m. *)
+(* Proof. intros. simpl. reflexivity. Qed. *)
