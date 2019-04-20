@@ -27,18 +27,27 @@ Definition size := nat.
 
 (* The main datatype.
    Invariant: only rightmost node is allowed to be partially full. *)
-Inductive tree {A : Type} : Type :=
-| E    : tree
-| Leaf : list size -> list A -> tree
-| Node : height -> list size -> list tree -> tree.
+Inductive tree (A : Type) : Type :=
+| E    : tree A
+| Leaf : list size -> list A -> tree A
+| Node : height -> list size -> list (tree A) -> tree A.
+
+Arguments E    {A}.
+Arguments Leaf {A}.
+Arguments Node {A}.
 
 (* The type exported out of this module *)
-Definition vector1 {A : Type} := tree (A := A).
+Definition vector1 (A : Type) := tree A.
 
 (* Upper bound on the #elems in a tree of height h *)
-Definition vec_capacity {A : Type} (ht : height) : nat := M ^ (ht + 1).
+Definition vec_capacity {A : Type} (tr : tree A) : nat :=
+  match tr with
+  | E           => 0
+  | Leaf _ _    => M
+  | Node ht _ _ => M ^ (ht + 1)
+  end.
 
-Definition get_height {A : Type} (tr : @vector1 A) : nat :=
+Definition get_height {A : Type} (tr : tree A) : nat :=
   match tr with
   | E           => 0
   | Leaf _ _    => 0
@@ -46,11 +55,11 @@ Definition get_height {A : Type} (tr : @vector1 A) : nat :=
   end.
 
 Axiom leaf_elems_M :
-  forall {A : Type} (szs : list size) (ns : list A) (tr : @vector1 A),
+  forall {A : Type} (szs : list size) (ns : list A) (tr : tree A),
     tr = Leaf szs ns -> length ns <= M.
 
 Axiom leaf_elems_not_nil :
-  forall {A : Type} (szs : list size) (ns : list A) (tr : @vector1 A),
+  forall {A : Type} (szs : list size) (ns : list A) (tr : tree A),
     tr = Leaf szs ns -> ns <> [] /\ szs <> [].
 
 (*
@@ -75,7 +84,7 @@ tr = Node ht szs trs -> length trs <= m.
 (* ---------------------------------- *)
 
 
-Definition vec_length {A : Type} (tr : @vector1 A) : nat :=
+Definition vec_length {A : Type} (tr : tree A) : nat :=
   match tr with
   | E => 0
   | Leaf szs ns  => match szs with
@@ -102,7 +111,7 @@ Proof. intros. unfold modulo, M. omega. Qed.
 Lemma index_of_lt_M : forall ht i, index_of ht i < M.
 Proof. intros. unfold index_of, M. apply mod_lt. Qed.
 
-Fixpoint get {A : Type} (idx : nat) (tr : @vector1 A) (default : A) : A :=
+Fixpoint get {A : Type} (idx : nat) (tr : tree A) (default : A) : A :=
   match tr with
   | E => default
   | Leaf _ ns =>
@@ -113,19 +122,19 @@ Fixpoint get {A : Type} (idx : nat) (tr : @vector1 A) (default : A) : A :=
     let slot' := index_of ht idx in
     (* Need to prove: (slot' < length trs) *)
     match (slot' , trs) with
-    | (0 , t0 :: ts)                   => get idx t0 default
-    | (1 , t0 :: t1 :: ts)             => get idx t1 default
-    | (2 , t0 :: t1 :: t2 :: ts)       => get idx t2 default
-    | (3 , t0 :: t1 :: t2 :: t3 :: ts) => get idx t3 default
+    | (0 , t0 :: [])                   => get idx t0 default
+    | (1 , t0 :: t1 :: [])             => get idx t1 default
+    | (2 , t0 :: t1 :: t2 :: [])       => get idx t2 default
+    | (3 , t0 :: t1 :: t2 :: t3 :: []) => get idx t3 default
     | _                                => default
     end
   end.
 
 (* Axiom get_and_default : *)
-(*   forall {A : Type} (idx : nat) (tr : @vector1 A) (default : A), *)
+(*   forall {A : Type} (idx : nat) (tr : tree A) (default : A), *)
 (*     idx < vec_length tr -> get idx tr default <> default. *)
 
-Definition last_vec {A : Type} (tr : vector1) (default : A) : A :=
+Definition last_vec {A : Type} (tr : tree A) (default : A) : A :=
   get (vec_length tr) tr default.
 
 
@@ -133,18 +142,18 @@ Definition last_vec {A : Type} (tr : vector1) (default : A) : A :=
 (* -- Snoc                            *)
 (* ---------------------------------- *)
 
-Fixpoint mkLeafAtHeight {A : Type} (ht : height) (v1 : A) : (vector1) :=
+Fixpoint mkLeafAtHeight {A : Type} (ht : height) (v1 : A) : tree A :=
   match ht with
   | O => Leaf [1] [v1]
   | S n => Node ht [1] [mkLeafAtHeight n v1]
   end.
 
 
-Definition join {A : Type} (a : @vector1 A) (b : @vector1 A) : (@vector1 A) :=
+Definition join {A : Type} (a : tree A) (b : tree A) : (tree A) :=
   Node (get_height a + 1) [ vec_length a ; (vec_length a + vec_length b) ] [a ; b].
 
 
-Definition vec_has_space_p {A : Type} (tr : @vector1 A) : bool :=
+Definition vec_has_space_p {A : Type} (tr : tree A) : bool :=
   match tr with
   | E             => true
   | Leaf _ ns     => length ns <? M
@@ -153,14 +162,14 @@ Definition vec_has_space_p {A : Type} (tr : @vector1 A) : bool :=
     | [] => true
     | sz :: rst =>
       let last_sz := strong_last (sz :: rst) (cons_not_nil sz rst) in
-      last_sz <? @vec_capacity A ht
+      last_sz <? vec_capacity tr
     end
   end.
 
 
 (* Assume that vector has space at the end, and snoc. *)
 Fixpoint snoc_Bottom
-  {A : Type} (fuel : nat) (tr : @vector1 A) (v1 : A) : option (@vector1 A) :=
+  {A : Type} (fuel : nat) (tr : tree A) (v1 : A) : option (tree A) :=
   match tr with
   | E => Some (Node 1 [1] [Leaf [1] [v1]])
 
@@ -181,12 +190,12 @@ Fixpoint snoc_Bottom
     | S n =>
       match (szs, trs) with
       | (sz :: ss, tr :: ts) =>
-        let last_sz := strong_last (sz :: ss) (cons_not_nil sz ss) in
-        let szs'    := removelast szs in
         let last_tr := strong_last (tr :: ts) (cons_not_nil tr ts) in
-        let trs'    := removelast trs in
         if vec_has_space_p last_tr
-        then match snoc_Bottom n last_tr v1 with
+        then let last_sz := strong_last (sz :: ss) (cons_not_nil sz ss) in
+             let szs'    := removelast szs in
+             let trs'    := removelast trs in
+             match snoc_Bottom n last_tr v1 with
              | Some snocd => Some (Node ht (szs' ++ [last_sz + 1]) (trs' ++ [snocd]))
              (* This value will never be None. Should I try to prove it to Coq? *)
              | None => None
@@ -203,7 +212,7 @@ Fixpoint snoc_Bottom
     end
   end.
 
-Program Fixpoint snoc {A : Type} (tr : vector1) (v : A) : vector1 :=
+Program Fixpoint snoc {A : Type} (tr : tree A) (v : A) : tree A :=
   if vec_has_space_p tr
   then  match snoc_Bottom (vec_length tr) tr v with
         | Some tr2 => tr2
@@ -214,7 +223,7 @@ Program Fixpoint snoc {A : Type} (tr : vector1) (v : A) : vector1 :=
 (*
 
 Axiom snoc_Bottom_Some :
-  forall {A : Type} (idx : nat) (tr : @vector1 A) (v : A),
+  forall {A : Type} (idx : nat) (tr : tree A) (v : A),
     rightmost_has_space_p tr = true ->
     (exists fuel tr2, snoc_Bottom fuel tr v = Some tr2).
 
@@ -225,17 +234,17 @@ Axiom snoc_Bottom_Some :
 (* -- to/from list                    *)
 (* ---------------------------------- *)
 
-Fixpoint go_toList {A : Type} (tr : @vector1 A) (acc : list A) : list A :=
+Fixpoint go_toList {A : Type} (tr : tree A) (acc : list A) : list A :=
   match tr with
   | E => []
   | Leaf _ ns    => ns ++ acc
   | Node _ _ trs => fold_right (fun t acc => go_toList t acc) acc trs
   end.
 
-Definition toList {A : Type} (tr : @vector1 A) : list A :=
+Definition toList {A : Type} (tr : tree A) : list A :=
   go_toList tr [].
 
-Fixpoint fromList {A : Type} (xs : list A) : (@vector1 A) :=
+Fixpoint fromList {A : Type} (xs : list A) : (tree A) :=
   fold_left (fun acc x => snoc acc x) xs E.
 
 Compute (fromList (seq 1 18)).
@@ -244,10 +253,31 @@ Compute (fromList (seq 1 18)).
 (* -- Theorems                        *)
 (* ---------------------------------- *)
 
+Fixpoint In_Vec {A : Type} (a : A) (tr : tree A) : Prop :=
+  match tr with
+  | E            => False
+  | Leaf _ ns    => In a ns
+  | Node _ _ trs =>
+    match trs with
+    | t0 :: []                   => In_Vec a t0
+    | t0 :: t1 :: []             => In_Vec a t1
+    | t0 :: t1 :: t2 :: []       => In_Vec a t2
+    | t0 :: t1 :: t2 :: t3 :: [] => In_Vec a t3
+    | _ => False
+    end
+  end.
+
+Lemma in_from_list : forall A ls a, In a ls -> @In_Vec A a (fromList ls).
+Proof. Admitted.
+
+(*
+
 Lemma get_and_default :
-  forall {A : Type} (idx : nat) (tr : @vector1 A) (default : A),
-    tr <> E -> idx < vec_length tr -> get idx tr default <> default.
+  forall {A : Type} (idx : nat) (tr : tree A) (default : A),
+    idx < vec_length tr -> In (get idx tr default) (toList tr).
 Proof.
-  intros. unfold get. induction tr.
-  + contradiction.
+  intros. induction tr.
+  + unfold get. contradiction.
   + Admitted.
+
+*)
