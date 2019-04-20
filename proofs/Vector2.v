@@ -54,6 +54,12 @@ Definition get_height {A : Type} (tr : tree A) : nat :=
   | Node ht _ _ => ht
   end.
 
+Axiom node_elems_not_nil :
+  forall {A : Type} (ht : height) (szs : list size) (ns : list (tree A)) (tr : tree A),
+    tr = Node ht szs ns -> ns <> [] /\ szs <> [].
+
+(*
+
 Axiom leaf_elems_M :
   forall {A : Type} (szs : list size) (ns : list A) (tr : tree A),
     tr = Leaf szs ns -> length ns <= M.
@@ -61,8 +67,6 @@ Axiom leaf_elems_M :
 Axiom leaf_elems_not_nil :
   forall {A : Type} (szs : list size) (ns : list A) (tr : tree A),
     tr = Leaf szs ns -> ns <> [] /\ szs <> [].
-
-(*
 
 Axiom leaf_sizes_elems :
   forall {A : Set} (szs : list size) (ns : list A) (tr : @vector A),
@@ -89,11 +93,11 @@ Definition vec_length {A : Type} (tr : tree A) : nat :=
   | E => 0
   | Leaf szs ns  => match szs with
                     | [] => 0
-                    | a :: rst => strong_last (a :: rst) (cons_not_nil a rst)
+                    | a :: rst => last rst a
                     end
   | Node _ szs _ => match szs with
                     | [] => 0
-                    | a :: rst => strong_last (a :: rst) (cons_not_nil a rst)
+                    | a :: rst => last rst a
                     end
   end.
 
@@ -161,7 +165,7 @@ Definition vec_has_space_p {A : Type} (tr : tree A) : bool :=
     match szs with
     | [] => true
     | sz :: rst =>
-      let last_sz := strong_last (sz :: rst) (cons_not_nil sz rst) in
+      let last_sz := last rst sz in
       last_sz <? vec_capacity tr
     end
   end.
@@ -179,7 +183,7 @@ Fixpoint snoc_Bottom
     match szs with
       | [] => Some (Leaf [1] [v1])
       | sz :: rst =>
-        let last_sz := strong_last (sz :: rst) (cons_not_nil sz rst) in
+        let last_sz := last rst sz in
         Some (Leaf (szs ++ [last_sz + 1]) (ns ++ [v1]))
     end
 
@@ -212,22 +216,18 @@ Fixpoint snoc_Bottom
     end
   end.
 
-Program Fixpoint snoc {A : Type} (tr : tree A) (v : A) : tree A :=
+Fixpoint snoc {A : Type} (tr : tree A) (v : A) : tree A :=
   if vec_has_space_p tr
   then  match snoc_Bottom (vec_length tr) tr v with
         | Some tr2 => tr2
-        | None => _
+        | None => E
         end
   else join tr (mkLeafAtHeight (get_height tr) v).
 
-(*
-
 Axiom snoc_Bottom_Some :
   forall {A : Type} (idx : nat) (tr : tree A) (v : A),
-    rightmost_has_space_p tr = true ->
+    (* vec_has_space_p tr = true -> *)
     (exists fuel tr2, snoc_Bottom fuel tr v = Some tr2).
-
-*)
 
 
 (* ---------------------------------- *)
@@ -267,8 +267,46 @@ Fixpoint In_Vec {A : Type} (a : A) (tr : tree A) : Prop :=
     end
   end.
 
-Lemma in_from_list : forall A ls a, In a ls -> @In_Vec A a (fromList ls).
-Proof. Admitted.
+Lemma mkLeafAtHeight_in_vec :
+  forall A ht a, @In_Vec A a (mkLeafAtHeight ht a).
+Proof.
+  intros. induction ht.
+  + unfold mkLeafAtHeight, In_Vec. apply in_eq.
+  + apply IHht.
+Qed.
+
+Lemma snoc_In_Vec : forall A a vec, @In_Vec A a (snoc vec a).
+Proof.
+  intros. induction vec.
+  (* tr = E *)
+  + unfold snoc, vec_has_space_p, snoc_Bottom.
+    cbv. left. reflexivity.
+
+  (* tr = Leaf *)
+  + unfold snoc, vec_has_space_p. destruct (length l0 <? M).
+
+    (* snoc_Bottom ... *)
+    - unfold vec_length. destruct l.
+      (* Leaf [] [] *)
+      * unfold snoc_Bottom. unfold In_Vec. apply in_eq.
+
+      (* Leaf (s :: ss) (n :: ns) *)
+      * unfold snoc_Bottom.
+        (* why doesn't Coq eliminate irrelevant cases. *)
+        admit.
+
+    (* join ... *)
+    - unfold join, get_height, mkLeafAtHeight.
+      unfold In_Vec. apply in_eq.
+
+  (* tr = Node *)
+  + unfold snoc, vec_has_space_p. destruct l eqn:l'.
+    - apply (node_elems_not_nil h l l0 (Node h l l0)). reflexivity. apply l'.
+    - destruct (last l1 s <? vec_capacity (Node h (s :: l1) l0)).
+      (* why doesn't Coq eliminate irrelevant cases. *)
+      * admit.
+      * unfold join, mkLeafAtHeight. simpl. apply (mkLeafAtHeight_in_vec A h a).
+Admitted.
 
 (*
 
