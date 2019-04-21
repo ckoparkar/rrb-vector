@@ -177,15 +177,13 @@ Fixpoint snoc_Bottom
   match tr with
   | E => Some (Node 1 [1] [Leaf [1] [v1]])
 
-  | Leaf szs ns =>
-    (* We don't check if (length ns) < M here, but do it before recurring
-       in the Node case. *)
-    match szs with
-      | [] => Some (Leaf [1] [v1])
-      | sz :: rst =>
-        let last_sz := last rst sz in
-        Some (Leaf (szs ++ [last_sz + 1]) (ns ++ [v1]))
-    end
+  | Leaf [] ns => Some (Leaf [1] [v1])
+
+  (* We don't check if (length ns) < M here, but do it before recurring
+     in the Node case. *)
+  | Leaf (sz :: rst) ns =>
+    let last_sz := last rst sz in
+    Some (Leaf ((sz :: rst) ++ [last_sz + 1]) (ns ++ [v1]))
 
   | Node ht szs trs =>
     match fuel with
@@ -267,7 +265,7 @@ Fixpoint In_Vec {A : Type} (a : A) (tr : tree A) : Prop :=
     end
   end.
 
-Lemma mkLeafAtHeight_in_vec :
+Lemma in_vec_mkLeafAtHeight :
   forall A ht a, @In_Vec A a (mkLeafAtHeight ht a).
 Proof.
   intros. induction ht.
@@ -275,7 +273,14 @@ Proof.
   + apply IHht.
 Qed.
 
-Lemma snoc_In_Vec : forall A a vec, @In_Vec A a (snoc vec a).
+Lemma in_append : forall A (a : A) xs, In a (xs ++ [a]).
+Proof.
+  intros. induction xs.
+  + simpl. left. reflexivity.
+  + simpl. right. apply IHxs.
+Qed.
+
+Lemma snoc_In_Vec : forall A (a : A) vec, In_Vec a (snoc vec a).
 Proof.
   intros. induction vec.
   (* tr = E *)
@@ -291,9 +296,12 @@ Proof.
       * unfold snoc_Bottom. unfold In_Vec. apply in_eq.
 
       (* Leaf (s :: ss) (n :: ns) *)
-      * unfold snoc_Bottom.
-        (* why doesn't Coq eliminate irrelevant cases. *)
-        admit.
+      * assert(H: snoc_Bottom (last l s) (Leaf (s :: l) l0) a =
+                  let last_sz := last l s in
+                  Some (Leaf ((s :: l) ++ [last_sz + 1]) (l0 ++ [a]))).
+        (* Hack b/c Coq doesn't automatically eliminate redundant cases. *)
+        { admit. }
+        ++ rewrite H. simpl. apply in_append.
 
     (* join ... *)
     - unfold join, get_height, mkLeafAtHeight.
@@ -303,19 +311,50 @@ Proof.
   + unfold snoc, vec_has_space_p. destruct l eqn:l'.
     - apply (node_elems_not_nil h l l0 (Node h l l0)). reflexivity. apply l'.
     - destruct (last l1 s <? vec_capacity (Node h (s :: l1) l0)).
-      (* why doesn't Coq eliminate irrelevant cases. *)
-      * admit.
-      * unfold join, mkLeafAtHeight. simpl. apply (mkLeafAtHeight_in_vec A h a).
+      * assert (H: snoc_Bottom (vec_length (Node h (s :: l1) l0)) (Node h (s :: l1) l0) a =
+                   (match (vec_length (Node h (s :: l1) l0)) with
+                    | 0   => None
+                    | S n =>
+                      match ((s :: l1), l0) with
+                      | ((s :: l1), tr :: ts) =>
+                        if vec_has_space_p (last ts tr)
+                        then let last_sz := last l1 s in
+                             let szs'    := removelast (s :: l1) in
+                             let trs'    := removelast l0 in
+                             match snoc_Bottom n (last ts tr) a with
+                             | Some snocd => Some (Node h (szs' ++ [last_sz + 1]) (trs' ++ [snocd]))
+                             (* This value will never be None. Should I try to prove it to Coq? *)
+                             | None => None
+                             end
+                        else
+                          let branch  := mkLeafAtHeight (h - 1) a in
+                          let last_sz := last l1 s in
+                          let szs'    := (s :: l1) ++ [1 + last_sz] in
+                          let trs'    := l0 ++ [branch]
+                          in Some (Node h szs' trs')
+
+                      | _ => None
+                      end
+                    end)). { admit. }
+        rewrite H.
+        destruct (vec_length (Node h (s :: l1) l0)).
+        (* Need a lemma to prove that we'll never run out of fuel. *)
+        ++ admit.
+        ++ destruct l0.
+           (* Need a lemma to prove that l0 will never be nil. *)
+           -- admit.
+           -- destruct (vec_has_space_p (last l0 t)).
+              ** admit.
+              ** admit.
+      * unfold join, mkLeafAtHeight. simpl. apply (in_vec_mkLeafAtHeight A h a).
 Admitted.
 
-(*
+(* ---------------------------------- *)
+(* -- Abs                             *)
+(* ---------------------------------- *)
 
-Lemma get_and_default :
-  forall {A : Type} (idx : nat) (tr : tree A) (default : A),
-    idx < vec_length tr -> In (get idx tr default) (toList tr).
-Proof.
-  intros. induction tr.
-  + unfold get. contradiction.
-  + Admitted.
-
-*)
+Inductive Abs {A : Type} : @vector1 A -> list A -> Prop :=
+| Abs_E : Abs E []
+| Abs_S : forall l1 v1 val,
+            (* is_RRB v1 -> *)
+            Abs v1 l1 -> Abs (snoc v1 val) (snoc_list l1 val).
