@@ -338,14 +338,19 @@ Proof.
                     end)). { admit. }
         rewrite H.
         destruct (vec_length (Node h (s :: l1) l0)).
-        (* Need a lemma to prove that we'll never run out of fuel. *)
+        (* Impossible case. Need a lemma to prove that we'll never run out of fuel. *)
         ++ admit.
-        ++ destruct l0.
-           (* Need a lemma to prove that l0 will never be nil. *)
+        ++ induction l0.
+           (*  Impossible case. l0 can never be empty. *)
            -- admit.
-           -- destruct (vec_has_space_p (last l0 t)).
-              ** admit.
-              ** admit.
+           -- destruct (vec_has_space_p (last l0 a0)).
+              +++ simpl. destruct (snoc_Bottom n (last l0 a0) a).
+                  (* TODO *)
+                  --- admit.
+                  (*  Impossible case. if vec_has_space_p == true, snocd_Bottom will never be None. *)
+                  --- admit.
+              (* TODO *)
+              +++ simpl. admit.
       * unfold join, mkLeafAtHeight. simpl. apply (in_vec_mkLeafAtHeight A h a).
 Admitted.
 
