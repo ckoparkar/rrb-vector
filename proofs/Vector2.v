@@ -251,34 +251,56 @@ Compute (fromList (seq 1 18)).
 (* -- Theorems                        *)
 (* ---------------------------------- *)
 
+(*
+  | Node _ _ trs =>
+    match trs with
+    | [] => False
+    | t0 :: []                   => In_Vec a t0
+    | t0 :: t1 :: []             => In_Vec a t1 \/ In_Vec a t1
+    | t0 :: t1 :: t2 :: []       => In_Vec a t1 \/ In_Vec a t1 \/ In_Vec a t2
+    | t0 :: t1 :: t2 :: t3 :: [] => In_Vec a t1 \/ In_Vec a t1 \/ In_Vec a t2 \/ In_Vec a t3
+    | _ => False
+    end
+*)
+
 Fixpoint In_Vec {A : Type} (a : A) (tr : tree A) : Prop :=
   match tr with
   | E            => False
   | Leaf _ ns    => In a ns
   | Node _ _ trs =>
-    match trs with
-    | t0 :: []                   => In_Vec a t0
-    | t0 :: t1 :: []             => In_Vec a t1
-    | t0 :: t1 :: t2 :: []       => In_Vec a t2
-    | t0 :: t1 :: t2 :: t3 :: [] => In_Vec a t3
-    | _ => False
-    end
+    ((fix in_vecs (a : A) (ls : list (tree A)) :=
+        match ls with
+        | [] => False
+        | t :: ts => In_Vec a t \/ in_vecs a ts
+        end) a trs)
   end.
 
 Lemma in_vec_mkLeafAtHeight :
-  forall A ht a, @In_Vec A a (mkLeafAtHeight ht a).
+  forall {A} ht (a : A), In_Vec a (mkLeafAtHeight ht a).
 Proof.
   intros. induction ht.
   + unfold mkLeafAtHeight, In_Vec. apply in_eq.
-  + apply IHht.
+  + simpl. left. apply IHht.
 Qed.
 
-Lemma in_append : forall A (a : A) xs, In a (xs ++ [a]).
+Lemma In_append : forall A (a : A) xs, In a (xs ++ [a]).
 Proof.
   intros. induction xs.
   + simpl. left. reflexivity.
   + simpl. right. apply IHxs.
 Qed.
+
+Lemma In_Vec_node_append : forall {A} (a : A) ht vec vecs szs,
+  In_Vec a vec -> In_Vec a (Node ht szs (vecs ++ [vec])).
+Proof.
+  intros. induction vecs.
+  + simpl. left. apply H.
+  + simpl. right. apply IHvecs.
+Qed.
+
+Lemma snoc_Bottom_In_Vec : forall {A} fuel vec (a : A) vec2,
+  snoc_Bottom fuel vec a = Some vec2 -> In_Vec a vec2.
+Proof. Admitted.
 
 Lemma snoc_In_Vec : forall A (a : A) vec, In_Vec a (snoc vec a).
 Proof.
@@ -301,7 +323,7 @@ Proof.
                   Some (Leaf ((s :: l) ++ [last_sz + 1]) (l0 ++ [a]))).
         (* Hack b/c Coq doesn't automatically eliminate redundant cases. *)
         { admit. }
-        ++ rewrite H. simpl. apply in_append.
+        ++ rewrite H. simpl. apply In_append.
 
     (* join ... *)
     - unfold join, get_height, mkLeafAtHeight.
@@ -344,9 +366,10 @@ Proof.
            (*  Impossible case. l0 can never be empty. *)
            -- admit.
            -- destruct (vec_has_space_p (last l0 a0)).
-              +++ simpl. destruct (snoc_Bottom n (last l0 a0) a).
-                  (* TODO *)
-                  --- admit.
+              +++ simpl. destruct (snoc_Bottom n (last l0 a0) a) eqn:snocd.
+                  --- assert(H2: In_Vec a t).
+                      { apply (snoc_Bottom_In_Vec n (last l0 a0) a). apply snocd. }
+                      apply In_Vec_node_append. apply H2.
                   (*  Impossible case. if vec_has_space_p == true, snocd_Bottom will never be None. *)
                   --- admit.
               (* TODO *)
