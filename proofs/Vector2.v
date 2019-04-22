@@ -36,6 +36,35 @@ Arguments E    {A}.
 Arguments Leaf {A}.
 Arguments Node {A}.
 
+(* See Nested Induction Types under:
+
+  http://adam.chlipala.net/cpdt/html/InductiveTypes.html *)
+
+Section tree_ind'.
+  Variable A : Type.
+  Variable P : (tree A) -> Prop.
+
+  Hypothesis E_case : P E.
+
+  Hypothesis Leaf_case : forall (szs : list nat) (ls : list A),
+    P (Leaf szs ls).
+
+  Hypothesis Node_case : forall (ht : nat) (szs : list nat) (ls : list (tree A)),
+    Forall P ls -> P (Node ht szs ls).
+
+  Fixpoint tree_ind' (tr : tree A) : P tr :=
+    match tr with
+      | E => E_case
+      | Leaf szs ls => Leaf_case szs ls
+      | Node ht szs ls => Node_case ht szs ls
+        ((fix list_tree_ind (ls : list (tree A)) : Forall P ls :=
+          match ls with
+            | [] => Forall_nil P
+            | tr' :: rest => Forall_cons tr' (tree_ind' tr') (list_tree_ind rest)
+          end) ls)
+    end.
+End tree_ind'.
+
 (* The type exported out of this module *)
 Definition vector1 (A : Type) := tree A.
 
@@ -307,7 +336,7 @@ Proof.
   intros. induction vec.
   (* tr = E *)
   + unfold snoc, vec_has_space_p, snoc_Bottom.
-    cbv. left. reflexivity.
+    cbv. left. left. reflexivity.
 
   (* tr = Leaf *)
   + unfold snoc, vec_has_space_p. destruct (length l0 <? M).
@@ -327,7 +356,7 @@ Proof.
 
     (* join ... *)
     - unfold join, get_height, mkLeafAtHeight.
-      unfold In_Vec. apply in_eq.
+      unfold In_Vec. right. left. apply in_eq.
 
   (* tr = Node *)
   + unfold snoc, vec_has_space_p. destruct l eqn:l'.
@@ -374,7 +403,7 @@ Proof.
                   --- admit.
               (* TODO *)
               +++ simpl. admit.
-      * unfold join, mkLeafAtHeight. simpl. apply (in_vec_mkLeafAtHeight A h a).
+      * unfold join, mkLeafAtHeight. simpl. right. left. apply (in_vec_mkLeafAtHeight h a).
 Admitted.
 
 (* ---------------------------------- *)
