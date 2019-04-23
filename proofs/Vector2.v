@@ -402,7 +402,7 @@ Proof.
                   (*  Impossible case. if vec_has_space_p == true, snocd_Bottom will never be None. *)
                   --- admit.
               (* TODO *)
-              +++ simpl. admit.
+              +++ apply In_Vec_node_append. apply (in_vec_mkLeafAtHeight (h - 1) a).
       * unfold join, mkLeafAtHeight. simpl. right. left. apply (in_vec_mkLeafAtHeight h a).
 Admitted.
 
