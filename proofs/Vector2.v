@@ -85,7 +85,11 @@ Definition get_height {A : Type} (tr : tree A) : nat :=
 
 Axiom node_elems_not_nil :
   forall {A : Type} (ht : height) (szs : list size) (ns : list (tree A)) (tr : tree A),
-    tr = Node ht szs ns -> ns <> [] /\ szs <> [].
+    tr = Node ht szs ns -> ns <> [].
+
+Axiom node_szs_not_nil :
+  forall {A : Type} (ht : height) (szs : list size) (ns : list (tree A)) (tr : tree A),
+    tr = Node ht szs ns -> szs <> [].
 
 (*
 
@@ -360,7 +364,7 @@ Proof.
 
   (* tr = Node *)
   + unfold snoc, vec_has_space_p. destruct l eqn:l'.
-    - apply (node_elems_not_nil h l l0 (Node h l l0)). reflexivity. apply l'.
+    - apply (node_szs_not_nil h l l0 (Node h l l0)). reflexivity. apply l'.
     - destruct (last l1 s <? vec_capacity (Node h (s :: l1) l0)).
       * assert (H: snoc_Bottom (vec_length (Node h (s :: l1) l0)) (Node h (s :: l1) l0) a =
                    (match (vec_length (Node h (s :: l1) l0)) with
@@ -391,13 +395,13 @@ Proof.
         destruct (vec_length (Node h (s :: l1) l0)).
         (* Impossible case. Need a lemma to prove that we'll never run out of fuel. *)
         ++ admit.
-        ++ induction l0.
+        ++ destruct l0 eqn:l0'.
            (*  Impossible case. l0 can never be empty. *)
-           -- admit.
-           -- destruct (vec_has_space_p (last l0 a0)).
-              +++ simpl. destruct (snoc_Bottom n (last l0 a0) a) eqn:snocd.
-                  --- assert(H2: In_Vec a t).
-                      { apply (snoc_Bottom_In_Vec n (last l0 a0) a). apply snocd. }
+           -- apply (node_elems_not_nil h l l0 (Node h l l0)). reflexivity. apply l0'.
+           -- destruct (vec_has_space_p (last l2 t)).
+              +++ simpl. destruct (snoc_Bottom n (last l2 t) a) eqn:snocd.
+                  --- assert(H2: In_Vec a t0).
+                      { apply (snoc_Bottom_In_Vec n (last l2 t) a). apply snocd. }
                       apply In_Vec_node_append. apply H2.
                   (*  Impossible case. if vec_has_space_p == true, snocd_Bottom will never be None. *)
                   --- admit.
@@ -412,6 +416,7 @@ Admitted.
 
 Inductive Abs {A : Type} : @vector1 A -> list A -> Prop :=
 | Abs_E : Abs E []
+| Abs_L : forall szs ns, Abs (Leaf szs ns) ns
 | Abs_S : forall l1 v1 val,
             (* is_RRB v1 -> *)
             Abs v1 l1 -> Abs (snoc v1 val) (snoc_list l1 val).
