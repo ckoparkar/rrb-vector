@@ -52,6 +52,7 @@ Definition strong_nth :
               | 0   , []       => fun pf => _
               | S m , []       => fun pf => _
               | 0   , x :: rst => fun _  => x
+
               | S m , x :: rst => fun _  => nth m rst x
               end).
   (* 0   , [] *)
@@ -63,7 +64,6 @@ Defined.
 Lemma skipn_nil : forall A m, skipn m (@nil A) = (@nil A).
 Proof. induction m ; auto. Qed.
 
-
 Lemma min_eq : forall n, min n n = n.
 Proof.
   intros. induction n.
@@ -73,3 +73,14 @@ Qed.
 
 Definition snoc_list {A : Type} (ls : list A) (v : A) : list A :=
   ls ++ [v].
+
+Lemma In_append : forall A (a : A) xs, In a (xs ++ [a]).
+Proof.
+  intros. induction xs.
+  + simpl. left. reflexivity.
+  + simpl. right. apply IHxs.
+Qed.
+
+Lemma last_not_In : forall A (ls : list A) a (pf: ls <> []),
+  ~ (In a ls) -> strong_last ls pf <> a.
+Proof. Admitted.

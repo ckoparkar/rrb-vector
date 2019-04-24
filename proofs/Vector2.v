@@ -91,11 +91,23 @@ Axiom node_szs_not_nil :
   forall {A : Type} (ht : height) (szs : list size) (ns : list (tree A)) (tr : tree A),
     tr = Node ht szs ns -> szs <> [].
 
+Axiom node_zero_not_in_szs :
+  forall {A : Type} (ht : height) (szs : list size) (ns : list (tree A)) (tr : tree A),
+    tr = Node ht szs ns -> ~ (In 0 szs).
+
+Axiom leaf_szs_not_nil :
+  forall {A : Type} (szs : list size) (ns : list A) (tr : tree A),
+    tr = Leaf szs ns -> szs <> [].
+
+Axiom leaf_zero_not_in_szs :
+  forall {A : Type} (szs : list size) (ns : list A) (tr : tree A),
+    tr = Leaf szs ns -> ~ (In 0 szs).
+
 (*
 
 Axiom leaf_elems_M :
   forall {A : Type} (szs : list size) (ns : list A) (tr : tree A),
-    tr = Leaf szs ns -> length ns <= M.
+v    tr = Leaf szs ns -> length ns <= M.
 
 Axiom leaf_elems_not_nil :
   forall {A : Type} (szs : list size) (ns : list A) (tr : tree A),
@@ -120,20 +132,73 @@ tr = Node ht szs trs -> length trs <= m.
 (* -- Length                          *)
 (* ---------------------------------- *)
 
+(*
+
+Definition vec_length {A : Type} (tr : tree A) : nat.
+  refine (((match tr as tr' return (tr = tr' -> nat) with
+          | E => fun _ => 0
+          | Leaf szs ns  => fun _ => ((match szs as szs' return (szs = szs' -> nat) with
+                            | [] => fun _ => _
+                            | a :: rst => fun _ => last rst a
+                            end) (eq_refl szs))
+          | Node _ szs _ => fun _ => ((match szs as szs' return (szs = szs' -> nat) with
+                            | [] => fun _ => _
+                            | a :: rst => fun _ => last rst a
+                            end) (eq_refl szs))
+          end) (eq_refl tr))).
+  + assert(H: szs <> []).
+    { apply (leaf_szs_not_nil szs ns tr). apply e. }
+    contradiction.
+
+  + assert(H: szs <> []).
+    { apply (node_szs_not_nil h szs l tr). apply e. }
+    contradiction.
+Defined.
+
+*)
 
 Definition vec_length {A : Type} (tr : tree A) : nat :=
   match tr with
   | E => 0
   | Leaf szs ns  => match szs with
                     | [] => 0
-                    | a :: rst => last rst a
+                    | a :: rst => strong_last (a :: rst) (cons_not_nil a rst)
                     end
   | Node _ szs _ => match szs with
                     | [] => 0
-                    | a :: rst => last rst a
+                    | a :: rst => strong_last (a :: rst) (cons_not_nil a rst)
                     end
-  end.
+end.
 
+Lemma vec_length_0_E : forall A vec,
+  @vec_length A vec = 0 <-> vec = E.
+Proof.
+  intros. split.
+  (* -> *)
+  + induction vec using tree_ind'.
+    - reflexivity.
+    - unfold vec_length. intro.
+      destruct szs eqn:szs'.
+      * assert (H2: szs <> []).
+        { apply (leaf_szs_not_nil szs ls (Leaf szs ls)). reflexivity. }
+        contradiction.
+      * assert(H2: strong_last (n :: l) (cons_not_nil n l) <> 0).
+        { apply last_not_In.
+          apply (leaf_zero_not_in_szs (n :: l) ls (Leaf (n :: l) ls)).
+          reflexivity. }
+        contradiction.
+    - unfold vec_length. intro. destruct szs eqn:szs'.
+      * assert (H2: szs <> []).
+        { apply (node_szs_not_nil ht szs ls (Node ht szs ls)). reflexivity. }
+        contradiction.
+      * assert(H2: strong_last (n :: l) (cons_not_nil n l) <> 0).
+        { apply last_not_In.
+          apply (node_zero_not_in_szs ht (n :: l) ls (Node ht (n :: l) ls)).
+          reflexivity. }
+        contradiction.
+  (* <-  *)
+  + intro. rewrite H. unfold vec_length. reflexivity.
+Qed.
 
 (* ---------------------------------- *)
 (* -- Lookup                          *)
@@ -278,7 +343,6 @@ Definition toList {A : Type} (tr : tree A) : list A :=
 Fixpoint fromList {A : Type} (xs : list A) : (tree A) :=
   fold_left (fun acc x => snoc acc x) xs E.
 
-Compute (fromList (seq 1 18)).
 
 (* ---------------------------------- *)
 (* -- Theorems                        *)
@@ -316,13 +380,6 @@ Proof.
   + simpl. left. apply IHht.
 Qed.
 
-Lemma In_append : forall A (a : A) xs, In a (xs ++ [a]).
-Proof.
-  intros. induction xs.
-  + simpl. left. reflexivity.
-  + simpl. right. apply IHxs.
-Qed.
-
 Lemma In_Vec_node_append : forall {A} (a : A) ht vec vecs szs,
   In_Vec a vec -> In_Vec a (Node ht szs (vecs ++ [vec])).
 Proof.
@@ -351,7 +408,7 @@ Proof.
       * unfold snoc_Bottom. unfold In_Vec. apply in_eq.
 
       (* Leaf (s :: ss) (n :: ns) *)
-      * assert(H: snoc_Bottom (last l s) (Leaf (s :: l) l0) a =
+      * assert(H: snoc_Bottom (strong_last (s :: l) (cons_not_nil s l)) (Leaf (s :: l) l0) a =
                   let last_sz := last l s in
                   Some (Leaf ((s :: l) ++ [last_sz + 1]) (l0 ++ [a]))).
         (* Hack b/c Coq doesn't automatically eliminate redundant cases. *)
@@ -392,9 +449,11 @@ Proof.
                       end
                     end)). { admit. }
         rewrite H.
-        destruct (vec_length (Node h (s :: l1) l0)).
+        destruct (vec_length (Node h (s :: l1) l0)) eqn:node_len.
         (* Impossible case. Need a lemma to prove that we'll never run out of fuel. *)
-        ++ admit.
+        ++ assert (H2: vec_length (Node h (s :: l1) l0) <> 0).
+           { rewrite vec_length_0_E. intro. inversion H0. }
+           contradiction.
         ++ destruct l0 eqn:l0'.
            (*  Impossible case. l0 can never be empty. *)
            -- apply (node_elems_not_nil h l l0 (Node h l l0)). reflexivity. apply l0'.
