@@ -109,10 +109,6 @@ Axiom leaf_elems_M :
   forall {A : Type} (szs : list size) (ns : list A) (tr : tree A),
 v    tr = Leaf szs ns -> length ns <= M.
 
-Axiom leaf_elems_not_nil :
-  forall {A : Type} (szs : list size) (ns : list A) (tr : tree A),
-    tr = Leaf szs ns -> ns <> [] /\ szs <> [].
-
 Axiom leaf_sizes_elems :
   forall {A : Set} (szs : list size) (ns : list A) (tr : @vector A),
   tr = Leaf szs ns -> length szs = length ns.
@@ -132,31 +128,6 @@ tr = Node ht szs trs -> length trs <= m.
 (* -- Length                          *)
 (* ---------------------------------- *)
 
-(*
-
-Definition vec_length {A : Type} (tr : tree A) : nat.
-  refine (((match tr as tr' return (tr = tr' -> nat) with
-          | E => fun _ => 0
-          | Leaf szs ns  => fun _ => ((match szs as szs' return (szs = szs' -> nat) with
-                            | [] => fun _ => _
-                            | a :: rst => fun _ => last rst a
-                            end) (eq_refl szs))
-          | Node _ szs _ => fun _ => ((match szs as szs' return (szs = szs' -> nat) with
-                            | [] => fun _ => _
-                            | a :: rst => fun _ => last rst a
-                            end) (eq_refl szs))
-          end) (eq_refl tr))).
-  + assert(H: szs <> []).
-    { apply (leaf_szs_not_nil szs ns tr). apply e. }
-    contradiction.
-
-  + assert(H: szs <> []).
-    { apply (node_szs_not_nil h szs l tr). apply e. }
-    contradiction.
-Defined.
-
-*)
-
 Definition vec_length {A : Type} (tr : tree A) : nat :=
   match tr with
   | E => 0
@@ -168,7 +139,7 @@ Definition vec_length {A : Type} (tr : tree A) : nat :=
                     | [] => 0
                     | a :: rst => strong_last (a :: rst) (cons_not_nil a rst)
                     end
-end.
+  end.
 
 Lemma vec_length_0_E : forall A vec,
   @vec_length A vec = 0 <-> vec = E.
@@ -321,10 +292,12 @@ Fixpoint snoc {A : Type} (tr : tree A) (v : A) : tree A :=
   else join tr (mkLeafAtHeight (get_height tr) v).
 
 Axiom snoc_Bottom_Some :
-  forall {A : Type} (idx : nat) (tr : tree A) (v : A),
-    (* vec_has_space_p tr = true -> *)
-    (exists fuel tr2, snoc_Bottom fuel tr v = Some tr2).
+  forall {A : Type} (tr : tree A) (v : A),
+    vec_has_space_p tr = true -> exists fuel tr2, snoc_Bottom fuel tr v = Some tr2.
 
+Axiom snoc_Bottom_Not_None :
+  forall {A : Type} fuel (tr : tree A) (v : A),
+    vec_has_space_p tr = true -> snoc_Bottom fuel tr v <> None.
 
 (* ---------------------------------- *)
 (* -- to/from list                    *)
@@ -347,18 +320,6 @@ Fixpoint fromList {A : Type} (xs : list A) : (tree A) :=
 (* ---------------------------------- *)
 (* -- Theorems                        *)
 (* ---------------------------------- *)
-
-(*
-  | Node _ _ trs =>
-    match trs with
-    | [] => False
-    | t0 :: []                   => In_Vec a t0
-    | t0 :: t1 :: []             => In_Vec a t1 \/ In_Vec a t1
-    | t0 :: t1 :: t2 :: []       => In_Vec a t1 \/ In_Vec a t1 \/ In_Vec a t2
-    | t0 :: t1 :: t2 :: t3 :: [] => In_Vec a t1 \/ In_Vec a t1 \/ In_Vec a t2 \/ In_Vec a t3
-    | _ => False
-    end
-*)
 
 Fixpoint In_Vec {A : Type} (a : A) (tr : tree A) : Prop :=
   match tr with
@@ -423,6 +384,7 @@ Proof.
   + unfold snoc, vec_has_space_p. destruct l eqn:l'.
     - apply (node_szs_not_nil h l l0 (Node h l l0)). reflexivity. apply l'.
     - destruct (last l1 s <? vec_capacity (Node h (s :: l1) l0)).
+      (* Root has space *)
       * assert (H: snoc_Bottom (vec_length (Node h (s :: l1) l0)) (Node h (s :: l1) l0) a =
                    (match (vec_length (Node h (s :: l1) l0)) with
                     | 0   => None
@@ -457,15 +419,19 @@ Proof.
         ++ destruct l0 eqn:l0'.
            (*  Impossible case. l0 can never be empty. *)
            -- apply (node_elems_not_nil h l l0 (Node h l l0)). reflexivity. apply l0'.
-           -- destruct (vec_has_space_p (last l2 t)).
+           -- destruct (vec_has_space_p (last l2 t)) eqn:vec_has_space.
+              (* vec_has_space_p =? false *)
               +++ simpl. destruct (snoc_Bottom n (last l2 t) a) eqn:snocd.
                   --- assert(H2: In_Vec a t0).
                       { apply (snoc_Bottom_In_Vec n (last l2 t) a). apply snocd. }
                       apply In_Vec_node_append. apply H2.
                   (*  Impossible case. if vec_has_space_p == true, snocd_Bottom will never be None. *)
-                  --- admit.
-              (* TODO *)
+                  --- assert(H2: snoc_Bottom n (last l2 t) a <> None).
+                      { apply snoc_Bottom_Not_None. apply vec_has_space. }
+                      contradiction.
+              (* vec_has_space_p =? true *)
               +++ apply In_Vec_node_append. apply (in_vec_mkLeafAtHeight (h - 1) a).
+      (* Root overflow *)
       * unfold join, mkLeafAtHeight. simpl. right. left. apply (in_vec_mkLeafAtHeight h a).
 Admitted.
 
