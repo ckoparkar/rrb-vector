@@ -83,25 +83,37 @@ Definition get_height {A : Type} (tr : tree A) : nat :=
   | Node ht _ _ => ht
   end.
 
-Axiom node_elems_not_nil :
-  forall {A : Type} (ht : height) (szs : list size) (ns : list (tree A)) (tr : tree A),
-    tr = Node ht szs ns -> ns <> [].
 
-Axiom node_szs_not_nil :
-  forall {A : Type} (ht : height) (szs : list size) (ns : list (tree A)) (tr : tree A),
-    tr = Node ht szs ns -> szs <> [].
+Inductive is_RRB {A : Type} : @vector1 A -> Prop :=
+| Inv1 : forall (ht : height) (szs : list size) (ns : list (tree A)) (tr : tree A),
+    ns <> [] -> szs <> [] -> ~ (In 0 szs) -> is_RRB (Node ht szs ns)
+| Inv2 : forall (szs : list size) (ns : list A) (tr : tree A),
+    szs <> [] -> ~ (In 0 szs) -> is_RRB (Leaf szs ns).
 
-Axiom node_zero_not_in_szs :
-  forall {A : Type} (ht : height) (szs : list size) (ns : list (tree A)) (tr : tree A),
-    tr = Node ht szs ns -> ~ (In 0 szs).
+Lemma node_elems_not_nil' :
+  forall {A : Type} (ht : height) (szs : list size) (ns : list (tree A)),
+    is_RRB (Node ht szs ns) -> ns <> [].
+Proof. intros. inversion H. subst. apply H3. Qed.
 
-Axiom leaf_szs_not_nil :
-  forall {A : Type} (szs : list size) (ns : list A) (tr : tree A),
-    tr = Leaf szs ns -> szs <> [].
+Lemma node_szs_not_nil' :
+  forall {A : Type} (ht : height) (szs : list size) (ns : list (tree A)),
+    is_RRB (Node ht szs ns) -> szs <> [].
+Proof. intros. inversion H. subst. apply H4. Qed.
 
-Axiom leaf_zero_not_in_szs :
-  forall {A : Type} (szs : list size) (ns : list A) (tr : tree A),
-    tr = Leaf szs ns -> ~ (In 0 szs).
+Lemma node_zero_not_in_szs' :
+  forall {A : Type} (ht : height) (szs : list size) (ns : list (tree A)),
+    is_RRB (Node ht szs ns) -> ~ (In 0 szs).
+Proof. intros. inversion H. subst. apply H5. Qed.
+
+Lemma leaf_szs_not_nil' :
+  forall {A : Type} (szs : list size) (ns : list A),
+    is_RRB (Leaf szs ns) -> szs <> [].
+Proof. intros. inversion H. subst. apply H2. Qed.
+
+Lemma leaf_zero_not_in_szs' :
+  forall {A : Type} (szs : list size) (ns : list A),
+    is_RRB (Leaf szs ns) -> ~ (In 0 szs).
+Proof. intros. inversion H. subst. apply H3. Qed.
 
 (*
 
@@ -142,7 +154,7 @@ Definition vec_length {A : Type} (tr : tree A) : nat :=
   end.
 
 Lemma vec_length_0_E : forall A vec,
-  @vec_length A vec = 0 <-> vec = E.
+  is_RRB vec -> @vec_length A vec = 0 <-> vec = E.
 Proof.
   intros. split.
   (* -> *)
@@ -151,24 +163,22 @@ Proof.
     - unfold vec_length. intro.
       destruct szs eqn:szs'.
       * assert (H2: szs <> []).
-        { apply (leaf_szs_not_nil szs ls (Leaf szs ls)). reflexivity. }
+        { subst. apply (leaf_szs_not_nil' [] ls H). }
         contradiction.
       * assert(H2: strong_last (n :: l) (cons_not_nil n l) <> 0).
         { apply last_not_In.
-          apply (leaf_zero_not_in_szs (n :: l) ls (Leaf (n :: l) ls)).
-          reflexivity. }
+          apply (leaf_zero_not_in_szs' (n :: l) ls H). }
         contradiction.
     - unfold vec_length. intro. destruct szs eqn:szs'.
       * assert (H2: szs <> []).
-        { apply (node_szs_not_nil ht szs ls (Node ht szs ls)). reflexivity. }
+        { subst. apply (node_szs_not_nil' ht [] ls H). }
         contradiction.
       * assert(H2: strong_last (n :: l) (cons_not_nil n l) <> 0).
         { apply last_not_In.
-          apply (node_zero_not_in_szs ht (n :: l) ls (Node ht (n :: l) ls)).
-          reflexivity. }
+          apply (node_zero_not_in_szs' ht (n :: l) ls H). }
         contradiction.
   (* <-  *)
-  + intro. rewrite H. unfold vec_length. reflexivity.
+  + intro. rewrite H0. unfold vec_length. reflexivity.
 Qed.
 
 (* ---------------------------------- *)
@@ -353,7 +363,7 @@ Lemma snoc_Bottom_In_Vec : forall {A} fuel vec (a : A) vec2,
   snoc_Bottom fuel vec a = Some vec2 -> In_Vec a vec2.
 Proof. Admitted.
 
-Lemma snoc_In_Vec : forall A (a : A) vec, In_Vec a (snoc vec a).
+Lemma snoc_In_Vec : forall A (a : A) vec, is_RRB vec -> In_Vec a (snoc vec a).
 Proof.
   intros. induction vec.
   (* tr = E *)
@@ -369,12 +379,12 @@ Proof.
       * unfold snoc_Bottom. unfold In_Vec. apply in_eq.
 
       (* Leaf (s :: ss) (n :: ns) *)
-      * assert(H: snoc_Bottom (strong_last (s :: l) (cons_not_nil s l)) (Leaf (s :: l) l0) a =
+      * assert(H1: snoc_Bottom (strong_last (s :: l) (cons_not_nil s l)) (Leaf (s :: l) l0) a =
                   let last_sz := last l s in
                   Some (Leaf ((s :: l) ++ [last_sz + 1]) (l0 ++ [a]))).
         (* Hack b/c Coq doesn't automatically eliminate redundant cases. *)
         { admit. }
-        ++ rewrite H. simpl. apply In_append.
+        ++ rewrite H1. simpl. apply In_append.
 
     (* join ... *)
     - unfold join, get_height, mkLeafAtHeight.
@@ -382,10 +392,10 @@ Proof.
 
   (* tr = Node *)
   + unfold snoc, vec_has_space_p. destruct l eqn:l'.
-    - apply (node_szs_not_nil h l l0 (Node h l l0)). reflexivity. apply l'.
+    - apply (node_szs_not_nil' h [] l0 H). reflexivity.
     - destruct (last l1 s <? vec_capacity (Node h (s :: l1) l0)).
       (* Root has space *)
-      * assert (H: snoc_Bottom (vec_length (Node h (s :: l1) l0)) (Node h (s :: l1) l0) a =
+      * assert (H1: snoc_Bottom (vec_length (Node h (s :: l1) l0)) (Node h (s :: l1) l0) a =
                    (match (vec_length (Node h (s :: l1) l0)) with
                     | 0   => None
                     | S n =>
@@ -410,15 +420,15 @@ Proof.
                       | _ => None
                       end
                     end)). { admit. }
-        rewrite H.
+        rewrite H1.
         destruct (vec_length (Node h (s :: l1) l0)) eqn:node_len.
         (* Impossible case. Need a lemma to prove that we'll never run out of fuel. *)
         ++ assert (H2: vec_length (Node h (s :: l1) l0) <> 0).
-           { rewrite vec_length_0_E. intro. inversion H0. }
+           { rewrite vec_length_0_E. intro. inversion H0. apply H. }
            contradiction.
         ++ destruct l0 eqn:l0'.
            (*  Impossible case. l0 can never be empty. *)
-           -- apply (node_elems_not_nil h l l0 (Node h l l0)). reflexivity. apply l0'.
+           -- apply (node_elems_not_nil' h (s :: l1) [] H). reflexivity.
            -- destruct (vec_has_space_p (last l2 t)) eqn:vec_has_space.
               (* vec_has_space_p =? false *)
               +++ simpl. destruct (snoc_Bottom n (last l2 t) a) eqn:snocd.
