@@ -17,24 +17,31 @@ From RRB Require Import Crush.
 (* Branching factor *)
 Definition M := 4.
 
-Definition log2M := log2 M.
-
-Definition mask := M - 1.
-
-(* Useful type synonyms *)
-Definition height := nat.
-Definition size := nat.
-
-(* The main datatype.
-   Invariant: only rightmost node is allowed to be partially full. *)
+(* The main datatype. *)
 Inductive tree (A : Type) : Type :=
 | E    : tree A
-| Leaf : list size -> list A -> tree A
-| Node : height -> list size -> list (tree A) -> tree A.
+| Leaf : list nat -> list A -> tree A
+| Node : nat -> list nat -> list (tree A) -> tree A.
 
 Arguments E    {A}.
 Arguments Leaf {A}.
 Arguments Node {A}.
+
+Print tree_ind.
+
+(*
+
+forall (A : Type) (P : tree A -> Prop),
+
+P E ->
+
+(forall (l : list nat) (l0 : list A), P (Leaf l l0)) ->
+
+(forall (n : nat) (l : list nat) (l0 : list (tree A)), P (Node n l l0)) ->
+
+forall t : tree A, P t
+
+*)
 
 (* See Nested Induction Types under:
 
@@ -65,8 +72,25 @@ Section tree_ind'.
     end.
 End tree_ind'.
 
+Print tree_ind'.
+
+(*
+
+forall (A : Type) (P : tree A -> Prop),
+
+P E ->
+
+(forall (szs : list nat) (ls : list A), P (Leaf szs ls)) ->
+
+(forall (ht : nat) (szs : list nat) (ls : list (tree A)), Forall P ls -> P (Node ht szs ls)) ->
+
+forall tr : tree A, P tr
+
+*)
+
 (* The type exported out of this module *)
 Definition vector1 (A : Type) := tree A.
+
 
 (* Upper bound on the #elems in a tree of height h *)
 Definition vec_capacity {A : Type} (tr : tree A) : nat :=
@@ -84,36 +108,45 @@ Definition get_height {A : Type} (tr : tree A) : nat :=
   end.
 
 
-Inductive is_RRB {A : Type} : @vector1 A -> Prop :=
-| Inv1 : forall (ht : height) (szs : list size) (ns : list (tree A)) (tr : tree A),
+(* ---------------------------------- *)
+(* -- Invariant datatype              *)
+(* ---------------------------------- *)
+
+Inductive is_RRB {A : Type} : tree A -> Prop :=
+| Inv1 : forall (ht : nat) (szs : list nat) (ns : list (tree A)) (tr : tree A),
     ns <> [] -> szs <> [] -> ~ (In 0 szs) -> is_RRB (Node ht szs ns)
-| Inv2 : forall (szs : list size) (ns : list A) (tr : tree A),
-    szs <> [] -> ~ (In 0 szs) -> is_RRB (Leaf szs ns).
+| Inv2 : forall (szs : list nat) (ns : list A) (tr : tree A),
+    ns <> [] -> szs <> [] -> ~ (In 0 szs) -> is_RRB (Leaf szs ns).
 
 Lemma node_elems_not_nil' :
-  forall {A : Type} (ht : height) (szs : list size) (ns : list (tree A)),
+  forall {A : Type} (ht : nat) (szs : list nat) (ns : list (tree A)),
     is_RRB (Node ht szs ns) -> ns <> [].
 Proof. intros. inversion H. subst. apply H3. Qed.
 
 Lemma node_szs_not_nil' :
-  forall {A : Type} (ht : height) (szs : list size) (ns : list (tree A)),
+  forall {A : Type} (ht : nat) (szs : list nat) (ns : list (tree A)),
     is_RRB (Node ht szs ns) -> szs <> [].
 Proof. intros. inversion H. subst. apply H4. Qed.
 
 Lemma node_zero_not_in_szs' :
-  forall {A : Type} (ht : height) (szs : list size) (ns : list (tree A)),
+  forall {A : Type} (ht : nat) (szs : list nat) (ns : list (tree A)),
     is_RRB (Node ht szs ns) -> ~ (In 0 szs).
 Proof. intros. inversion H. subst. apply H5. Qed.
 
-Lemma leaf_szs_not_nil' :
-  forall {A : Type} (szs : list size) (ns : list A),
-    is_RRB (Leaf szs ns) -> szs <> [].
+Lemma leaf_elems_not_nil' :
+  forall {A : Type} (szs : list nat) (ns : list A),
+    is_RRB (Leaf szs ns) -> ns <> [].
 Proof. intros. inversion H. subst. apply H2. Qed.
 
-Lemma leaf_zero_not_in_szs' :
-  forall {A : Type} (szs : list size) (ns : list A),
-    is_RRB (Leaf szs ns) -> ~ (In 0 szs).
+Lemma leaf_szs_not_nil' :
+  forall {A : Type} (szs : list nat) (ns : list A),
+    is_RRB (Leaf szs ns) -> szs <> [].
 Proof. intros. inversion H. subst. apply H3. Qed.
+
+Lemma leaf_zero_not_in_szs' :
+  forall {A : Type} (szs : list nat) (ns : list A),
+    is_RRB (Leaf szs ns) -> ~ (In 0 szs).
+Proof. intros. inversion H. subst. apply H4. Qed.
 
 (*
 
@@ -181,12 +214,13 @@ Proof.
   + intro. rewrite H0. unfold vec_length. reflexivity.
 Qed.
 
+
 (* ---------------------------------- *)
 (* -- Lookup                          *)
 (* ---------------------------------- *)
 
 (* Not using bit operations for now *)
-Definition index_of (ht : height) (i : nat) : nat := (i / (M ^ ht)) mod M.
+Definition index_of (ht : nat) (i : nat) : nat := (i / (M ^ ht)) mod M.
 
 Lemma mod_lt : forall n, n mod M < M.
 Proof. intros. unfold modulo, M. omega. Qed.
@@ -213,19 +247,12 @@ Fixpoint get {A : Type} (idx : nat) (tr : tree A) (default : A) : A :=
     end
   end.
 
-(* Axiom get_and_default : *)
-(*   forall {A : Type} (idx : nat) (tr : tree A) (default : A), *)
-(*     idx < vec_length tr -> get idx tr default <> default. *)
-
-Definition last_vec {A : Type} (tr : tree A) (default : A) : A :=
-  get (vec_length tr) tr default.
-
 
 (* ---------------------------------- *)
 (* -- Snoc                            *)
 (* ---------------------------------- *)
 
-Fixpoint mkLeafAtHeight {A : Type} (ht : height) (v1 : A) : tree A :=
+Fixpoint mkLeafAtHeight {A : Type} (ht : nat) (v1 : A) : tree A :=
   match ht with
   | O => Leaf [1] [v1]
   | S n => Node ht [1] [mkLeafAtHeight n v1]
@@ -250,7 +277,6 @@ Definition vec_has_space_p {A : Type} (tr : tree A) : bool :=
   end.
 
 
-(* Assume that vector has space at the end, and snoc. *)
 Fixpoint snoc_Bottom
   {A : Type} (fuel : nat) (tr : tree A) (v1 : A) : option (tree A) :=
   match tr with
@@ -379,9 +405,9 @@ Proof.
       * unfold snoc_Bottom. unfold In_Vec. apply in_eq.
 
       (* Leaf (s :: ss) (n :: ns) *)
-      * assert(H1: snoc_Bottom (strong_last (s :: l) (cons_not_nil s l)) (Leaf (s :: l) l0) a =
-                  let last_sz := last l s in
-                  Some (Leaf ((s :: l) ++ [last_sz + 1]) (l0 ++ [a]))).
+      * assert(H1: snoc_Bottom (strong_last (n :: l) (cons_not_nil n l)) (Leaf (n :: l) l0) a =
+                  let last_sz := last l n in
+                  Some (Leaf ((n :: l) ++ [last_sz + 1]) (l0 ++ [a]))).
         (* Hack b/c Coq doesn't automatically eliminate redundant cases. *)
         { admit. }
         ++ rewrite H1. simpl. apply In_append.
@@ -392,66 +418,79 @@ Proof.
 
   (* tr = Node *)
   + unfold snoc, vec_has_space_p. destruct l eqn:l'.
-    - apply (node_szs_not_nil' h [] l0 H). reflexivity.
-    - destruct (last l1 s <? vec_capacity (Node h (s :: l1) l0)).
+    - apply (node_szs_not_nil' n [] l0 H). reflexivity.
+    - destruct (last l1 n0 <? vec_capacity (Node n (n0 :: l1) l0)).
       (* Root has space *)
-      * assert (H1: snoc_Bottom (vec_length (Node h (s :: l1) l0)) (Node h (s :: l1) l0) a =
-                   (match (vec_length (Node h (s :: l1) l0)) with
+      * assert (H1: snoc_Bottom (vec_length (Node n (n0 :: l1) l0)) (Node n ( n0 :: l1) l0) a =
+                   (match (vec_length (Node n (n0 :: l1) l0)) with
                     | 0   => None
-                    | S n =>
-                      match ((s :: l1), l0) with
-                      | ((s :: l1), tr :: ts) =>
+                    | S n1 =>
+                      match ((n0 :: l1), l0) with
+                      | ((n0 :: l1), tr :: ts) =>
                         if vec_has_space_p (last ts tr)
-                        then let last_sz := last l1 s in
-                             let szs'    := removelast (s :: l1) in
+                        then let last_sz := last l1 n0 in
+                             let szs'    := removelast (n0 :: l1) in
                              let trs'    := removelast l0 in
-                             match snoc_Bottom n (last ts tr) a with
-                             | Some snocd => Some (Node h (szs' ++ [last_sz + 1]) (trs' ++ [snocd]))
+                             match snoc_Bottom n1 (last ts tr) a with
+                             | Some snocd => Some (Node n (szs' ++ [last_sz + 1]) (trs' ++ [snocd]))
                              (* This value will never be None. Should I try to prove it to Coq? *)
                              | None => None
                              end
                         else
-                          let branch  := mkLeafAtHeight (h - 1) a in
-                          let last_sz := last l1 s in
-                          let szs'    := (s :: l1) ++ [1 + last_sz] in
+                          let branch  := mkLeafAtHeight (n - 1) a in
+                          let last_sz := last l1 n0 in
+                          let szs'    := (n0 :: l1) ++ [1 + last_sz] in
                           let trs'    := l0 ++ [branch]
-                          in Some (Node h szs' trs')
+                          in Some (Node n szs' trs')
 
                       | _ => None
                       end
                     end)). { admit. }
         rewrite H1.
-        destruct (vec_length (Node h (s :: l1) l0)) eqn:node_len.
+        destruct (vec_length (Node n (n0 :: l1) l0)) eqn:node_len.
         (* Impossible case. Need a lemma to prove that we'll never run out of fuel. *)
-        ++ assert (H2: vec_length (Node h (s :: l1) l0) <> 0).
+        ++ assert (H2: vec_length (Node n (n0 :: l1) l0) <> 0).
            { rewrite vec_length_0_E. intro. inversion H0. apply H. }
            contradiction.
         ++ destruct l0 eqn:l0'.
            (*  Impossible case. l0 can never be empty. *)
-           -- apply (node_elems_not_nil' h (s :: l1) [] H). reflexivity.
+           -- apply (node_elems_not_nil' n (n0 :: l1) [] H). reflexivity.
            -- destruct (vec_has_space_p (last l2 t)) eqn:vec_has_space.
               (* vec_has_space_p =? false *)
-              +++ simpl. destruct (snoc_Bottom n (last l2 t) a) eqn:snocd.
+              +++ simpl. destruct (snoc_Bottom n1 (last l2 t) a) eqn:snocd.
                   --- assert(H2: In_Vec a t0).
-                      { apply (snoc_Bottom_In_Vec n (last l2 t) a). apply snocd. }
+                      { apply (snoc_Bottom_In_Vec n1 (last l2 t) a). apply snocd. }
                       apply In_Vec_node_append. apply H2.
                   (*  Impossible case. if vec_has_space_p == true, snocd_Bottom will never be None. *)
-                  --- assert(H2: snoc_Bottom n (last l2 t) a <> None).
+                  --- assert(H2: snoc_Bottom n1 (last l2 t) a <> None).
                       { apply snoc_Bottom_Not_None. apply vec_has_space. }
                       contradiction.
               (* vec_has_space_p =? true *)
-              +++ apply In_Vec_node_append. apply (in_vec_mkLeafAtHeight (h - 1) a).
+              +++ apply In_Vec_node_append. apply (in_vec_mkLeafAtHeight (n - 1) a).
       (* Root overflow *)
-      * unfold join, mkLeafAtHeight. simpl. right. left. apply (in_vec_mkLeafAtHeight h a).
+      * unfold join, mkLeafAtHeight. simpl. right. left. apply (in_vec_mkLeafAtHeight n a).
 Admitted.
+
+
+Theorem get_and_default :
+  forall {A : Type} (idx : nat) (tr : tree A) (default : A),
+    ~ (In_Vec default tr) ->
+    (get idx tr default = default) <-> idx >= vec_length tr.
+Proof. Admitted.
+
+Theorem get_2 :
+  forall {A : Type} (idx : nat) (tr : tree A) (default : A),
+    ~ (In_Vec default tr) -> idx <= vec_length tr ->
+    In_Vec (get idx tr default) tr.
+Proof. Admitted.
+
 
 (* ---------------------------------- *)
 (* -- Abs                             *)
 (* ---------------------------------- *)
 
-Inductive Abs {A : Type} : @vector1 A -> list A -> Prop :=
+Inductive Abs {A : Type} : tree A -> list A -> Prop :=
 | Abs_E : Abs E []
 | Abs_L : forall szs ns, Abs (Leaf szs ns) ns
 | Abs_S : forall l1 v1 val,
-            (* is_RRB v1 -> *)
             Abs v1 l1 -> Abs (snoc v1 val) (snoc_list l1 val).
