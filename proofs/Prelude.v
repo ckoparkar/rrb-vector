@@ -84,3 +84,14 @@ Qed.
 Lemma last_not_In : forall A (ls : list A) a (pf: ls <> []),
   ~ (In a ls) -> strong_last ls pf <> a.
 Proof. Admitted.
+
+
+Fixpoint append_all {A : Type} (ls : list (list A)) : list A :=
+  match ls with
+  | []      => []
+  | x :: xs => x ++ append_all xs
+  end.
+
+
+Lemma div_1 : forall n, n / 1 = n.
+Proof. Admitted.

@@ -29,19 +29,6 @@ Arguments Node {A}.
 
 Print tree_ind.
 
-(*
-
-forall (A : Type) (P : tree A -> Prop),
-
-P E ->
-
-(forall (l : list nat) (l0 : list A), P (Leaf l l0)) ->
-
-(forall (n : nat) (l : list nat) (l0 : list (tree A)), P (Node n l l0)) ->
-
-forall t : tree A, P t
-
-*)
 
 (* See Nested Induction Types under:
 
@@ -74,19 +61,6 @@ End tree_ind'.
 
 Print tree_ind'.
 
-(*
-
-forall (A : Type) (P : tree A -> Prop),
-
-P E ->
-
-(forall (szs : list nat) (ls : list A), P (Leaf szs ls)) ->
-
-(forall (ht : nat) (szs : list nat) (ls : list (tree A)), Forall P ls -> P (Node ht szs ls)) ->
-
-forall tr : tree A, P tr
-
-*)
 
 (* The type exported out of this module *)
 Definition vector1 (A : Type) := tree A.
@@ -114,9 +88,13 @@ Definition get_height {A : Type} (tr : tree A) : nat :=
 
 Inductive is_RRB {A : Type} : tree A -> Prop :=
 | Inv1 : forall (ht : nat) (szs : list nat) (ns : list (tree A)) (tr : tree A),
-    ns <> [] -> szs <> [] -> ~ (In 0 szs) -> is_RRB (Node ht szs ns)
+    ns <> [] -> szs <> [] -> ~ (In 0 szs)
+    -> length ns < M -> length szs < M
+    -> is_RRB (Node ht szs ns)
 | Inv2 : forall (szs : list nat) (ns : list A) (tr : tree A),
-    ns <> [] -> szs <> [] -> ~ (In 0 szs) -> is_RRB (Leaf szs ns).
+    ns <> [] -> szs <> [] -> ~ (In 0 szs)
+    -> length ns < M -> length szs < M
+    -> is_RRB (Leaf szs ns).
 
 Lemma node_elems_not_nil' :
   forall {A : Type} (ht : nat) (szs : list nat) (ns : list (tree A)),
@@ -327,9 +305,27 @@ Fixpoint snoc {A : Type} (tr : tree A) (v : A) : tree A :=
         end
   else join tr (mkLeafAtHeight (get_height tr) v).
 
-Axiom snoc_Bottom_Some :
+Lemma snoc_Bottom_Some :
   forall {A : Type} (tr : tree A) (v : A),
-    vec_has_space_p tr = true -> exists fuel tr2, snoc_Bottom fuel tr v = Some tr2.
+  exists fuel tr2, snoc_Bottom fuel tr v = Some tr2.
+Proof.
+  intros. destruct tr eqn:tr'.
+  + exists 0. exists (Node 1 [1] [(Leaf [1] [v])]). reflexivity.
+  + destruct l eqn:l'.
+    - exists 0. exists (Leaf [1] [v]). unfold snoc_Bottom.
+      reflexivity.
+    - exists 0.
+      exists (Leaf (l ++ [(last l1 n) + 1]) (l0 ++ [v])).
+      simpl. subst. reflexivity.
+  + exists 1. econstructor. unfold snoc_Bottom. simpl.
+    destruct l eqn:l'.
+    (* Impossible case. *)
+    - admit.
+    - destruct l0 eqn:l0'.
+      (* Impossible case. *)
+      * admit.
+      * destruct (vec_has_space_p (last l2 t)) eqn:vec_has_space.
+        ++ Admitted.
 
 Axiom snoc_Bottom_Not_None :
   forall {A : Type} fuel (tr : tree A) (v : A),
@@ -389,9 +385,10 @@ Lemma snoc_Bottom_In_Vec : forall {A} fuel vec (a : A) vec2,
   snoc_Bottom fuel vec a = Some vec2 -> In_Vec a vec2.
 Proof. Admitted.
 
+
 Lemma snoc_In_Vec : forall A (a : A) vec, is_RRB vec -> In_Vec a (snoc vec a).
 Proof.
-  intros. induction vec.
+  intros. destruct vec.
   (* tr = E *)
   + unfold snoc, vec_has_space_p, snoc_Bottom.
     cbv. left. left. reflexivity.
@@ -406,8 +403,8 @@ Proof.
 
       (* Leaf (s :: ss) (n :: ns) *)
       * assert(H1: snoc_Bottom (strong_last (n :: l) (cons_not_nil n l)) (Leaf (n :: l) l0) a =
-                  let last_sz := last l n in
-                  Some (Leaf ((n :: l) ++ [last_sz + 1]) (l0 ++ [a]))).
+                   let last_sz := last l n in
+                   Some (Leaf ((n :: l) ++ [last_sz + 1]) (l0 ++ [a]))).
         (* Hack b/c Coq doesn't automatically eliminate redundant cases. *)
         { admit. }
         ++ rewrite H1. simpl. apply In_append.
@@ -458,9 +455,10 @@ Proof.
            -- destruct (vec_has_space_p (last l2 t)) eqn:vec_has_space.
               (* vec_has_space_p =? false *)
               +++ simpl. destruct (snoc_Bottom n1 (last l2 t) a) eqn:snocd.
-                  --- assert(H2: In_Vec a t0).
-                      { apply (snoc_Bottom_In_Vec n1 (last l2 t) a). apply snocd. }
-                      apply In_Vec_node_append. apply H2.
+                  --- apply In_Vec_node_append. subst.
+                  assert(H2: In_Vec a t0).
+                  { apply (snoc_Bottom_In_Vec n1 (last l2 t) a). apply snocd. }
+                  apply H2.
                   (*  Impossible case. if vec_has_space_p == true, snocd_Bottom will never be None. *)
                   --- assert(H2: snoc_Bottom n1 (last l2 t) a <> None).
                       { apply snoc_Bottom_Not_None. apply vec_has_space. }
@@ -489,8 +487,30 @@ Proof. Admitted.
 (* -- Abs                             *)
 (* ---------------------------------- *)
 
-Inductive Abs {A : Type} : tree A -> list A -> Prop :=
+Inductive Abs  {A : Type} : tree A -> list A -> Prop :=
 | Abs_E : Abs E []
 | Abs_L : forall szs ns, Abs (Leaf szs ns) ns
-| Abs_S : forall l1 v1 val,
-            Abs v1 l1 -> Abs (snoc v1 val) (snoc_list l1 val).
+| Abs_N : forall ht szs ns ls,
+          AbsL ns ls -> Abs (Node ht szs ns) (append_all ls)
+
+with AbsL {A : Type} : list (tree A) -> list (list A) -> Prop :=
+| AbsL_Nil  : AbsL [] []
+| AbsL_Cons : forall t l ts ls,
+              Abs t l -> AbsL ts ls -> AbsL (t :: ts) (l :: ls).
+
+
+Theorem get_relate:
+  forall {A : Type} n vec ls d,
+    is_RRB vec ->
+    Abs vec ls -> @get A n vec d = nth n ls d.
+Proof.
+  intros. induction H0.
+  + simpl ; destruct n ; reflexivity.
+  + simpl. unfold index_of, M.
+    assert(H1: (n / M ^ 0) mod M = n).
+Admitted.
+
+Theorem snoc_relate:
+ forall {A : Type} vec ls val,
+    Abs vec ls -> Abs (@snoc A vec val) (snoc_list ls val).
+Proof. Admitted.
