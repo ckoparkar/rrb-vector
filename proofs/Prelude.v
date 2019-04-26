@@ -89,6 +89,8 @@ Lemma strong_last_Forall : forall A l (ls : list A) P,
   Forall P (l :: ls) -> P (last ls l).
 Proof. Admitted.
 
+Lemma not_in_neq : forall n ls, ~ (In n ls) -> Forall (fun n => n <> 0) ls.
+Proof. Admitted.
 
 Fixpoint append_all {A : Type} (ls : list (list A)) : list A :=
   match ls with

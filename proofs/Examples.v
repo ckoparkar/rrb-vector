@@ -2,87 +2,40 @@ Require Import Nat.
 Require Import List.
 Import ListNotations.
 
-From RRB Require Import Vector2.
+From RRB Require Import Vector3.
 
 (* -------------------------------------------------------------------------- *)
 
-Definition tree10 : vector1 :=
-  Node 1 [4 ; 8 ; 10]
-       [ Leaf [1 ; 2 ; 3 ; 4] [1 ; 2 ; 3 ; 4]
-       ; Leaf [1 ; 2 ; 3 ; 4] [5 ; 6 ; 7 ; 8]
-       ; Leaf [1 ; 2]         [9 ; 10]
+Definition tree10 : tree nat :=
+  Node 1 [10 ; 8 ; 4]
+       [ Leaf [2 ; 1]         [10 ; 9]
+       ; Leaf [4 ; 3 ; 2 ; 1] [8 ; 7 ; 6 ; 5]
+       ; Leaf [4 ; 3 ; 2 ; 1] [4 ; 3 ; 2 ; 1]
        ].
 
-Definition tree20 : vector1 :=
-  Node 2 [16 ; 20]
-         [ Node 1 [4 ; 8 ; 12 ; 16]
-                [ Leaf [1 ; 2 ; 3 ; 4] [1 ; 2 ; 3 ; 4]
-                ; Leaf [1 ; 2 ; 3 ; 4] [5 ; 6 ; 7 ; 8]
-                ; Leaf [1 ; 2 ; 3 ; 4] [9 ; 10 ; 11 ; 12]
-                ; Leaf [1 ; 2 ; 3 ; 4] [13 ; 14 ; 15 ; 16]
+Definition tree20 : tree nat :=
+  Node 2 [20 ; 16]
+         [ Node 1 [4]
+                [ Leaf [4 ; 3 ; 2 ; 1] [20 ; 19 ; 18 ; 17]
                 ]
-         ; Node 1 [4]
-                [ Leaf [1 ; 2 ; 3 ; 4] [17 ; 18 ; 19 ; 20]
-                ]
-       ].
-
-(*
-
-Definition tree_ub : vector1 :=
-  Node 2 [9 ; 21]
-         [ Node 1 [3 ; 6 ; 9]
-                [ Leaf [1 ; 1 ; 1] [1 ; 2 ; 3]
-                ; Leaf [1 ; 1 ; 1] [4 ; 5 ; 6]
-                ; Leaf [1 ; 1 ; 1] [7 ; 8 ; 9]
-                ]
-         ; Node 1 [3 ; 6 ; 10 ; 12]
-                [ Leaf [1 ; 1 ; 1]     [10 ; 11 ; 12]
-                ; Leaf [1 ; 1 ; 1]     [13 ; 14 ; 15]
-                ; Leaf [1 ; 1 ; 1 ; 1] [16 ; 17 ; 18 ; 19]
-                ; Leaf [1 ; 1]         [20 ; 21]
+         ; Node 1 [16 ; 12 ; 8 ; 4]
+                [ Leaf [4 ; 3 ; 2 ; 1] [16 ; 15 ; 14 ; 13]
+                ; Leaf [4 ; 3 ; 2 ; 1] [12 ; 11 ; 10 ; 9]
+                ; Leaf [4 ; 3 ; 2 ; 1] [8 ; 7 ; 6 ; 5]
+                ; Leaf [4 ; 3 ; 2 ; 1] [4 ; 3 ; 2 ; 1]
                 ]
        ].
 
-Definition tree_ub2 : vector1 :=
-  Node 1 [1 ; 3 ; 6 ; 10]
-         [ Leaf [1]             [1]
-         ; Leaf [1 ; 1]         [2 ; 3]
-         ; Leaf [1 ; 1 ; 1]     [4 ; 5 ; 6]
-         ; Leaf [1 ; 1 ; 1 ; 1] [7 ; 8 ; 9 ; 10]
-         ].
-
-
-Definition tree_ub3 : vector1 :=
-  Node 1 [1 ; 2 ; 3 ; 4]
-       [ Leaf [1] [1]
-       ; Leaf [1] [2]
-       ; Leaf [1] [3]
-       ; Leaf [1] [4]
-       ].
-
-Definition tree17_cons : vector1 :=
-  Node 2 [1 ; 17]
-         [ Node 1 [1] [ Leaf [1] [17] ]
-         ; Node 1 [4 ; 8 ; 12 ; 16]
-                  [ Leaf [1 ; 1 ; 1 ; 1] [1 ; 2 ; 3 ; 4]
-                  ; Leaf [1 ; 1 ; 1 ; 1] [5 ; 6 ; 7 ; 8]
-                  ; Leaf [1 ; 1 ; 1 ; 1] [9 ; 10 ; 11 ; 12]
-                  ; Leaf [1 ; 1 ; 1 ; 1] [13 ; 14 ; 15 ; 16]
-                  ]
-         ].
-
-*)
-
-Definition tree17 : vector1 :=
-  Node 2 [16 ; 17]
-         [ Node 1 [4 ; 8 ; 12 ; 16]
-                [ Leaf [1 ; 2 ; 3 ; 4] [1 ; 2 ; 3 ; 4]
-                ; Leaf [1 ; 2 ; 3 ; 4] [5 ; 6 ; 7 ; 8]
-                ; Leaf [1 ; 2 ; 3 ; 4] [9 ; 10 ; 11 ; 12]
-                ; Leaf [1 ; 2 ; 3 ; 4] [13 ; 14 ; 15 ; 16]
-                ]
-         ; Node 1 [1]
+Definition tree17 : tree nat :=
+  Node 2 [17 ; 16]
+         [ Node 1 [1]
                 [ Leaf [1] [17] ]
+         ; Node 1 [16 ; 12 ; 8 ; 4]
+                [ Leaf [4 ; 3 ; 2 ; 1] [16 ; 15 ; 14 ; 13]
+                ; Leaf [4 ; 3 ; 2 ; 1] [12 ; 11 ; 10 ; 9]
+                ; Leaf [4 ; 3 ; 2 ; 1] [8 ; 7 ; 6 ; 5]
+                ; Leaf [4 ; 3 ; 2 ; 1] [4 ; 3 ; 2 ; 1]
+                ]
        ].
 
 Definition test1 : toList tree10 = (seq 1 10).
@@ -93,6 +46,8 @@ Proof. reflexivity. Qed.
 
 Definition test3 : fromList (seq 1 10) = tree10.
 Proof. reflexivity. Qed.
+
+Compute (fromList (seq 1 20)).
 
 Definition test4 : fromList (seq 1 20) = tree20.
 Proof. reflexivity. Qed.
