@@ -90,7 +90,7 @@ Inductive is_RRB {A : Type} : tree A -> Prop :=
 | Inv1 : forall (ht : nat) (szs : list nat) (ns : list (tree A)) (tr : tree A),
     ns <> [] -> szs <> [] -> ~ (In 0 szs)
     -> length ns < M -> length szs < M
-    -> is_RRB (Node ht szs ns)
+    -> Forall is_RRB ns -> is_RRB (Node ht szs ns)
 | Inv2 : forall (szs : list nat) (ns : list A) (tr : tree A),
     ns <> [] -> szs <> [] -> ~ (In 0 szs)
     -> length ns < M -> length szs < M
@@ -177,7 +177,7 @@ Proof.
         { subst. apply (leaf_szs_not_nil' [] ls H). }
         contradiction.
       * assert(H2: strong_last (n :: l) (cons_not_nil n l) <> 0).
-        { apply last_not_In.
+        { apply strong_last_not_In.
           apply (leaf_zero_not_in_szs' (n :: l) ls H). }
         contradiction.
     - unfold vec_length. intro. destruct szs eqn:szs'.
@@ -185,7 +185,7 @@ Proof.
         { subst. apply (node_szs_not_nil' ht [] ls H). }
         contradiction.
       * assert(H2: strong_last (n :: l) (cons_not_nil n l) <> 0).
-        { apply last_not_In.
+        { apply strong_last_not_In.
           apply (node_zero_not_in_szs' ht (n :: l) ls H). }
         contradiction.
   (* <-  *)
@@ -305,32 +305,6 @@ Fixpoint snoc {A : Type} (tr : tree A) (v : A) : tree A :=
         end
   else join tr (mkLeafAtHeight (get_height tr) v).
 
-Lemma snoc_Bottom_Some :
-  forall {A : Type} (tr : tree A) (v : A),
-  exists fuel tr2, snoc_Bottom fuel tr v = Some tr2.
-Proof.
-  intros. destruct tr eqn:tr'.
-  + exists 0. exists (Node 1 [1] [(Leaf [1] [v])]). reflexivity.
-  + destruct l eqn:l'.
-    - exists 0. exists (Leaf [1] [v]). unfold snoc_Bottom.
-      reflexivity.
-    - exists 0.
-      exists (Leaf (l ++ [(last l1 n) + 1]) (l0 ++ [v])).
-      simpl. subst. reflexivity.
-  + exists 1. econstructor. unfold snoc_Bottom. simpl.
-    destruct l eqn:l'.
-    (* Impossible case. *)
-    - admit.
-    - destruct l0 eqn:l0'.
-      (* Impossible case. *)
-      * admit.
-      * destruct (vec_has_space_p (last l2 t)) eqn:vec_has_space.
-        ++ Admitted.
-
-Axiom snoc_Bottom_Not_None :
-  forall {A : Type} fuel (tr : tree A) (v : A),
-    vec_has_space_p tr = true -> snoc_Bottom fuel tr v <> None.
-
 (* ---------------------------------- *)
 (* -- to/from list                    *)
 (* ---------------------------------- *)
@@ -365,7 +339,7 @@ Fixpoint In_Vec {A : Type} (a : A) (tr : tree A) : Prop :=
         end) a trs)
   end.
 
-Lemma in_vec_mkLeafAtHeight :
+Lemma In_Vec_mkLeafAtHeight :
   forall {A} ht (a : A), In_Vec a (mkLeafAtHeight ht a).
 Proof.
   intros. induction ht.
@@ -381,93 +355,94 @@ Proof.
   + simpl. right. apply IHvecs.
 Qed.
 
-Lemma snoc_Bottom_In_Vec : forall {A} fuel vec (a : A) vec2,
+Axiom dont_worry_about_fuel : forall {A} (a : A) fuel vec,
+  vec_has_space_p vec = true ->
+  snoc_Bottom fuel vec a <> None.
+
+Axiom dont_worry_about_fuel2 : forall {A} (a : A) fuel vec vec2,
+  vec_has_space_p vec = true ->
   snoc_Bottom fuel vec a = Some vec2 -> In_Vec a vec2.
-Proof. Admitted.
+
+Lemma snoc_Bottom_in_vec : forall {A} vec (a : A) vec2,
+  is_RRB vec -> snoc_Bottom (vec_length vec) vec a = Some vec2 -> In_Vec a vec2.
+Proof.
+  intros. induction vec using tree_ind'.
+  + inversion H.
+  + unfold vec_length in H0. destruct szs eqn:d_szs.
+    - inversion H. contradiction.
+    - destruct (strong_last (n :: l) (cons_not_nil n l)) eqn:d_fuel.
+      * assert(H1: strong_last (n :: l) (cons_not_nil n l) <> 0).
+        apply strong_last_not_In. inversion H. apply H5. contradiction.
+      * inversion H0. apply In_append.
+  + unfold vec_length in H0. destruct szs eqn:d_szs.
+    - inversion H. contradiction.
+    - destruct (strong_last (n :: l) (cons_not_nil n l)) eqn:d_fuel.
+      * assert(H2: strong_last (n :: l) (cons_not_nil n l) <> 0).
+        apply strong_last_not_In. inversion H. apply H7. contradiction.
+      * inversion H0. destruct ls eqn:d_ls.
+        ++ inversion H. contradiction.
+        ++ destruct (vec_has_space_p (last l0 t)) eqn:d_vec_has_space.
+           -- destruct (snoc_Bottom n0 (last l0 t) a) eqn:snoc_bot.
+              ** inversion H3. apply In_Vec_node_append.
+                 apply dont_worry_about_fuel2 with n0 (last l0 t).
+                 apply d_vec_has_space. apply snoc_bot.
+              ** inversion H3.
+           -- inversion H3. apply (In_Vec_node_append a ht (mkLeafAtHeight (ht - 1) a) (t :: l0) (n :: l ++ [S (last l n)])).
+              apply In_Vec_mkLeafAtHeight.
+Qed.
 
 
 Lemma snoc_In_Vec : forall A (a : A) vec, is_RRB vec -> In_Vec a (snoc vec a).
 Proof.
-  intros. destruct vec.
+  intros. induction vec using tree_ind'.
   (* tr = E *)
   + unfold snoc, vec_has_space_p, snoc_Bottom.
-    cbv. left. left. reflexivity.
+    simpl. left. left. reflexivity.
 
   (* tr = Leaf *)
-  + unfold snoc, vec_has_space_p. destruct (length l0 <? M).
-
+  + unfold snoc, vec_has_space_p. destruct (length ls <? M).
     (* snoc_Bottom ... *)
-    - unfold vec_length. destruct l.
+    - unfold vec_length. destruct szs.
       (* Leaf [] [] *)
       * unfold snoc_Bottom. unfold In_Vec. apply in_eq.
 
       (* Leaf (s :: ss) (n :: ns) *)
-      * assert(H1: snoc_Bottom (strong_last (n :: l) (cons_not_nil n l)) (Leaf (n :: l) l0) a =
-                   let last_sz := last l n in
-                   Some (Leaf ((n :: l) ++ [last_sz + 1]) (l0 ++ [a]))).
-        (* Hack b/c Coq doesn't automatically eliminate redundant cases. *)
-        { admit. }
-        ++ rewrite H1. simpl. apply In_append.
-
+      * destruct (strong_last (n :: szs) (cons_not_nil n szs)) eqn:fuel.
+        (* Impossible case, cannot run out of fuel. *)
+        ++ assert(H1: (strong_last (n :: szs) (cons_not_nil n szs)) <> 0).
+           { apply strong_last_not_In. inversion H. apply H4. }
+           contradiction.
+        ++ simpl. apply In_append.
     (* join ... *)
     - unfold join, get_height, mkLeafAtHeight.
       unfold In_Vec. right. left. apply in_eq.
 
   (* tr = Node *)
-  + unfold snoc, vec_has_space_p. destruct l eqn:l'.
-    - apply (node_szs_not_nil' n [] l0 H). reflexivity.
-    - destruct (last l1 n0 <? vec_capacity (Node n (n0 :: l1) l0)).
+  + unfold snoc, vec_has_space_p. destruct szs eqn:d_szs.
+    - apply (node_szs_not_nil' ht [] ls H). reflexivity.
+    - destruct (last l n <? vec_capacity (Node ht (n :: l) ls)).
       (* Root has space *)
-      * assert (H1: snoc_Bottom (vec_length (Node n (n0 :: l1) l0)) (Node n ( n0 :: l1) l0) a =
-                   (match (vec_length (Node n (n0 :: l1) l0)) with
-                    | 0   => None
-                    | S n1 =>
-                      match ((n0 :: l1), l0) with
-                      | ((n0 :: l1), tr :: ts) =>
-                        if vec_has_space_p (last ts tr)
-                        then let last_sz := last l1 n0 in
-                             let szs'    := removelast (n0 :: l1) in
-                             let trs'    := removelast l0 in
-                             match snoc_Bottom n1 (last ts tr) a with
-                             | Some snocd => Some (Node n (szs' ++ [last_sz + 1]) (trs' ++ [snocd]))
-                             (* This value will never be None. Should I try to prove it to Coq? *)
-                             | None => None
-                             end
-                        else
-                          let branch  := mkLeafAtHeight (n - 1) a in
-                          let last_sz := last l1 n0 in
-                          let szs'    := (n0 :: l1) ++ [1 + last_sz] in
-                          let trs'    := l0 ++ [branch]
-                          in Some (Node n szs' trs')
-
-                      | _ => None
-                      end
-                    end)). { admit. }
-        rewrite H1.
-        destruct (vec_length (Node n (n0 :: l1) l0)) eqn:node_len.
-        (* Impossible case. Need a lemma to prove that we'll never run out of fuel. *)
-        ++ assert (H2: vec_length (Node n (n0 :: l1) l0) <> 0).
-           { rewrite vec_length_0_E. intro. inversion H0. apply H. }
+      * unfold vec_length. destruct (strong_last (n :: l) (cons_not_nil n l)) eqn:fuel.
+        (* Impossible case: cannot run out of fuel *)
+        ++ assert(H1: (strong_last (n :: l) (cons_not_nil n l)) <> 0).
+           { apply strong_last_not_In. inversion H. apply H6. }
            contradiction.
-        ++ destruct l0 eqn:l0'.
-           (*  Impossible case. l0 can never be empty. *)
-           -- apply (node_elems_not_nil' n (n0 :: l1) [] H). reflexivity.
-           -- destruct (vec_has_space_p (last l2 t)) eqn:vec_has_space.
-              (* vec_has_space_p =? false *)
-              +++ simpl. destruct (snoc_Bottom n1 (last l2 t) a) eqn:snocd.
-                  --- apply In_Vec_node_append. subst.
-                  assert(H2: In_Vec a t0).
-                  { apply (snoc_Bottom_In_Vec n1 (last l2 t) a). apply snocd. }
-                  apply H2.
-                  (*  Impossible case. if vec_has_space_p == true, snocd_Bottom will never be None. *)
-                  --- assert(H2: snoc_Bottom n1 (last l2 t) a <> None).
-                      { apply snoc_Bottom_Not_None. apply vec_has_space. }
-                      contradiction.
-              (* vec_has_space_p =? true *)
-              +++ apply In_Vec_node_append. apply (in_vec_mkLeafAtHeight (n - 1) a).
+        ++ simpl. destruct ls.
+           (* Impossible case: ls cannot be empty *)
+           -- inversion H. contradiction.
+           -- destruct (vec_has_space_p (last ls t)) eqn:vec_has_space.
+              simpl. destruct (snoc_Bottom n0 (last ls t) a) eqn:snocd.
+              ** apply In_Vec_node_append.
+                 apply (dont_worry_about_fuel2 a n0 (last ls t) t0).
+                 apply vec_has_space. apply snocd.
+              (*  Impossible case. if vec_has_space_p == true, snocd_Bottom will never be None. *)
+              ** assert(H2: snoc_Bottom n0 (last ls t) a <> None).
+                 { apply dont_worry_about_fuel. apply vec_has_space. }
+                 contradiction.
+              ** apply In_Vec_node_append. apply (In_Vec_mkLeafAtHeight (ht - 1) a).
       (* Root overflow *)
-      * unfold join, mkLeafAtHeight. simpl. right. left. apply (in_vec_mkLeafAtHeight n a).
-Admitted.
+      * unfold join, mkLeafAtHeight. simpl. right. left. apply (In_Vec_mkLeafAtHeight ht a).
+Qed.
 
 
 Theorem get_and_default :

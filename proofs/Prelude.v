@@ -81,8 +81,12 @@ Proof.
   + simpl. right. apply IHxs.
 Qed.
 
-Lemma last_not_In : forall A (ls : list A) a (pf: ls <> []),
+Lemma strong_last_not_In : forall A (ls : list A) a (pf: ls <> []),
   ~ (In a ls) -> strong_last ls pf <> a.
+Proof. Admitted.
+
+Lemma strong_last_Forall : forall A l (ls : list A) P,
+  Forall P (l :: ls) -> P (last ls l).
 Proof. Admitted.
 
 
@@ -91,7 +95,6 @@ Fixpoint append_all {A : Type} (ls : list (list A)) : list A :=
   | []      => []
   | x :: xs => x ++ append_all xs
   end.
-
 
 Lemma div_1 : forall n, n / 1 = n.
 Proof. Admitted.
