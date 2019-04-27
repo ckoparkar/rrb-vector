@@ -1,3 +1,4 @@
+Require Import Coq.Bool.Bool.
 Require Import Nat.
 Require Import List.
 Import ListNotations.
@@ -81,15 +82,7 @@ Proof.
   + simpl. right. apply IHxs.
 Qed.
 
-Lemma strong_last_not_In : forall A (ls : list A) a (pf: ls <> []),
-  ~ (In a ls) -> strong_last ls pf <> a.
-Proof. Admitted.
-
-Lemma strong_last_Forall : forall A l (ls : list A) P,
-  Forall P (l :: ls) -> P (last ls l).
-Proof. Admitted.
-
-Lemma not_in_neq : forall n ls, ~ (In n ls) -> Forall (fun n => n <> 0) ls.
+Lemma not_in_neq : forall n ls, ~ (In n ls) <-> Forall (fun n => n <> 0) ls.
 Proof. Admitted.
 
 Fixpoint append_all {A : Type} (ls : list (list A)) : list A :=
@@ -100,3 +93,50 @@ Fixpoint append_all {A : Type} (ls : list (list A)) : list A :=
 
 Lemma div_1 : forall n, n / 1 = n.
 Proof. Admitted.
+
+Lemma zero_not_in_cons_succ : forall n l, ~ In 0 (n :: l) -> ~ In 0 ([n + 1] ++ n :: l).
+Proof. Admitted.
+
+Lemma zero_not_in_succ : forall n l, ~ In 0 l -> ~ In 0 ([n + 1] ++ l).
+Proof. Admitted.
+
+Lemma zero_not_in_sublist : forall n l, ~ In 0 (n :: l) -> ~ In 0 l.
+Proof. Admitted.
+
+Lemma S_lt_eq : forall n m, n < m -> S n <= m.
+Proof. Admitted.
+
+Lemma add_not_0 : forall a b, a <> 0 -> b <> 0 -> a + b <> 0.
+Proof. Admitted.
+
+(* ---------------------------------- *)
+(* -- bdestruct                       *)
+(* ---------------------------------- *)
+
+Lemma beq_reflect : forall x y, reflect (x = y) (x =? y).
+Proof.
+  intros x y.
+  apply iff_reflect. symmetry.  apply beq_nat_true_iff.
+Qed.
+
+Lemma blt_reflect : forall x y, reflect (x < y) (x <? y).
+Proof.
+  intros x y.
+  apply iff_reflect. symmetry. apply Nat.ltb_lt.
+Qed.
+
+Lemma ble_reflect : forall x y, reflect (x <= y) (x <=? y).
+Proof.
+  intros x y.
+  apply iff_reflect. symmetry. apply Nat.leb_le.
+Qed.
+
+Ltac bdestruct X :=
+  let H := fresh in let e := fresh "e" in
+   evar (e: Prop);
+   assert (H: reflect e X); subst e;
+   [eauto with bdestruct
+   | destruct H as [H|H];
+     [ | try first [apply not_lt in H | apply not_le in H]]].
+
+Hint Resolve blt_reflect ble_reflect beq_reflect : bdestruct.
