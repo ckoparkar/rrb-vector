@@ -196,6 +196,13 @@ Proof.
   + unfold mkLeafAtHeight. intro. inversion H.
 Qed.
 
+Lemma mkLeafAtHeight_not_E_sym : forall A ht (a : A), E <> mkLeafAtHeight ht a.
+Proof.
+  intros. induction ht.
+  + unfold mkLeafAtHeight. intro. inversion H.
+  + unfold mkLeafAtHeight. intro. inversion H.
+Qed.
+
 Definition join {A : Type} (a : tree A) (b : tree A) : (tree A) :=
   Node (get_height a + 1) [ (vec_length a + vec_length b) ; vec_length b ] [a ; b].
 
@@ -503,12 +510,27 @@ with AbsL {A : Type} : list (tree A) -> list (list A) -> Prop :=
 | AbsL_Cons : forall t l ts ls,
               Abs t l -> AbsL ts ls -> AbsL (t :: ts) (l :: ls).
 
+Scheme Abs_mut := Induction for Abs Sort Prop
+with AbsL_mut := Induction for AbsL Sort Prop.
+
+Lemma mkLeafAtHeight_relate_ind : forall {A} ht (val : A) ls,
+  Abs (mkLeafAtHeight ht val) ls -> Abs (mkLeafAtHeight (S ht) val) ls.
+Proof.
+  intros. induction ht.
+  + simpl. simpl in H. rewrite append_all_rw2.
+    apply Abs_N. apply AbsL_Cons. apply H. apply AbsL_Nil.
+  + unfold mkLeafAtHeight. fold (mkLeafAtHeight ht val).
+    rewrite append_all_rw2.
+    apply Abs_N. apply AbsL_Cons. apply H. apply AbsL_Nil.
+Qed.
+
 Lemma mkLeafAtHeight_relate : forall {A} ht (val : A),
   Abs (mkLeafAtHeight ht val) [val].
 Proof.
   intros. induction ht.
   + unfold mkLeafAtHeight. apply Abs_L.
-  + Admitted.
+  + apply mkLeafAtHeight_relate_ind. apply IHht.
+Qed.
 
 Lemma join_relate : forall {A} vec1 (vec2 : tree A) ls1 ls2,
   Abs vec1 ls1 -> Abs vec2 ls2 -> Abs (join vec1 vec2) (ls1 ++ ls2).
@@ -521,7 +543,7 @@ Proof.
   apply AbsL_Cons. apply H. apply AbsL_Cons. apply H0. apply AbsL_Nil.
 Qed.
 
-Theorem snoc_Bottom_relate : forall {A} vec ls (val : A),
+Lemma snoc_Bottom_relate : forall {A} vec ls (val : A),
   is_RRB vec -> vec_has_space_p vec = true ->
   Abs vec ls -> Abs (snoc_Bottom vec val) (val :: ls).
 Proof.
@@ -556,6 +578,21 @@ Proof.
            apply mkLeafAtHeight_relate. apply H1.
         ++ (* No induction hypothesis :( *)
 Admitted.
+
+Print Abs_mut.
+
+Lemma snoc_Bottom_relate' : forall {A} vec ls (val : A),
+  is_RRB vec -> vec_has_space_p vec = true ->
+  Abs vec ls -> Abs (snoc_Bottom vec val) (val :: ls).
+Proof.
+  intros. apply (Abs_mut A
+                  (fun a b abs => Abs (snoc_Bottom a val) b)
+                  (fun a b abs => AbsL a b)).
+  + admit.
+  + admit.
+  +intros.
+
+(* forall (l : list (tree ?T)) (l0 : list (list ?T)), AbsL l l0 -> Prop *)
 
 Theorem snoc_relate:
  forall {A} vec ls (val : A),

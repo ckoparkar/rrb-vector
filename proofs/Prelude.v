@@ -142,6 +142,27 @@ Proof.
   + simpl. reflexivity.
   + Admitted.
 
+Lemma append_all_rw2 : forall A (ls : list A), ls = append_all [ls].
+Proof.
+  intros. unfold append_all. rewrite append_nil. reflexivity.
+Qed.
+
+Lemma append_all_rw3 : forall A lls (ls : list A),
+  length lls = 1 -> lls = [ls] <-> append_all lls = ls.
+Proof.
+  split.
+  (* -> *)
+  + intros. rewrite H0.
+    unfold append_all. apply append_nil.
+  (* -> *)
+  + intros. induction lls.
+    - inversion H.
+    - assert (H1: lls = []).
+      { apply length_zero_iff_nil. inversion H. reflexivity. }
+      rewrite H1. rewrite H1 in H0.
+      rewrite <- append_all_rw2 in H0. rewrite H0. reflexivity.
+Qed.
+
 (* ---------------------------------- *)
 (* -- bdestruct                       *)
 (* ---------------------------------- *)
