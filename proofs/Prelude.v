@@ -85,6 +85,12 @@ Qed.
 Lemma not_in_neq : forall n ls, ~ (In n ls) <-> Forall (fun n => n <> 0) ls.
 Proof. Admitted.
 
+Fixpoint rev_append_all {A : Type} (ls : list (list A)) : list A :=
+  match ls with
+  | []      => []
+  | x :: xs => rev_append_all xs ++ x
+  end.
+
 Fixpoint append_all {A : Type} (ls : list (list A)) : list A :=
   match ls with
   | []      => []
@@ -108,6 +114,33 @@ Proof. Admitted.
 
 Lemma add_not_0 : forall a b, a <> 0 -> b <> 0 -> a + b <> 0.
 Proof. Admitted.
+
+Lemma append_assoc : forall {A} (ls1 : list A) ls2 ls3,
+  ls1 ++ (ls2 ++ ls3) = (ls1 ++ ls2) ++ ls3.
+Proof.
+  intros. induction ls1.
+  + simpl. reflexivity.
+  + simpl. rewrite IHls1. reflexivity.
+Qed.
+
+Lemma append_nil : forall {A} (ls1 : list A), ls1 ++ [] = ls1.
+Proof.
+  intros. induction ls1.
+  + simpl. reflexivity.
+  + simpl. rewrite IHls1. reflexivity.
+Qed.
+
+Lemma append_rw1 : forall A (val : A) ls, [val] ++ ls = val :: ls.
+Proof.
+  intros. induction ls.
+  + simpl. reflexivity.
+  + Admitted.
+
+Lemma append_all_rw1 : forall A (val : A) ls, ([val] :: ls) = [val :: append_all ls].
+Proof.
+  intros. induction ls.
+  + simpl. reflexivity.
+  + Admitted.
 
 (* ---------------------------------- *)
 (* -- bdestruct                       *)

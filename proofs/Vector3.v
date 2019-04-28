@@ -339,7 +339,7 @@ Qed.
 
 
 (* 3: Snoc maintains the invariant. *)
-Lemma is_RRB_mkLeafAtHeight : forall A ht (a : A), is_RRB (mkLeafAtHeight ht a).
+Lemma is_RRB_mkLeafAtHeight : forall {A} ht (a : A), is_RRB (mkLeafAtHeight ht a).
 Proof.
   intros. induction ht.
   + unfold mkLeafAtHeight. apply Inv2.
@@ -357,7 +357,7 @@ Proof.
     - apply Forall_cons. apply IHht. apply Forall_nil.
 Qed.
 
-Lemma snocBottom_is_RRB : forall A vec (a : A),
+Lemma snocBottom_is_RRB : forall {A} vec (a : A),
   is_RRB vec -> is_RRB (snoc_Bottom vec a).
 Proof.
   intros. induction vec using tree_ind'.
@@ -441,7 +441,7 @@ Proof.
                     inversion H. apply H9.
 Admitted.
 
-Lemma join_is_RRB : forall A vec ht (a : A),
+Lemma join_is_RRB : forall {A} vec ht (a : A),
   is_RRB vec -> vec <> E -> is_RRB (join (mkLeafAtHeight ht a) vec).
 Proof.
   intros. unfold join. apply Inv1.
@@ -474,7 +474,7 @@ Proof.
       apply Forall_nil.
 Qed.
 
-Theorem snoc_is_RRB : forall A vec (a : A),
+Theorem snoc_is_RRB : forall {A} vec (a : A),
   is_RRB vec -> is_RRB (snoc vec a).
 Proof.
   intros. unfold snoc. destruct (vec_has_space_p vec) eqn:d_vec_has_space.
@@ -486,3 +486,97 @@ Proof.
       * intro. inversion H0.
       * intro. inversion H1.
 Qed.
+
+
+(* ---------------------------------- *)
+(* -- Abs                             *)
+(* ---------------------------------- *)
+
+Inductive Abs  {A : Type} : tree A -> list A -> Prop :=
+| Abs_E : Abs E []
+| Abs_L : forall szs ns, Abs (Leaf szs ns) ns
+| Abs_N : forall ht szs ns ls,
+          AbsL ns ls -> Abs (Node ht szs ns) (append_all ls)
+
+with AbsL {A : Type} : list (tree A) -> list (list A) -> Prop :=
+| AbsL_Nil  : AbsL [] []
+| AbsL_Cons : forall t l ts ls,
+              Abs t l -> AbsL ts ls -> AbsL (t :: ts) (l :: ls).
+
+Lemma mkLeafAtHeight_relate : forall {A} ht (val : A),
+  Abs (mkLeafAtHeight ht val) [val].
+Proof.
+  intros. induction ht.
+  + unfold mkLeafAtHeight. apply Abs_L.
+  + Admitted.
+
+Lemma join_relate : forall {A} vec1 (vec2 : tree A) ls1 ls2,
+  Abs vec1 ls1 -> Abs vec2 ls2 -> Abs (join vec1 vec2) (ls1 ++ ls2).
+Proof.
+  intros. unfold join.
+  assert(H1: ls1 ++ ls2 = append_all [ls1 ; ls2]).
+  { unfold append_all. simpl. rewrite append_nil. reflexivity. }
+  rewrite H1.
+  apply (Abs_N (get_height vec1 + 1) [vec_length vec1 + vec_length vec2; vec_length vec2] [vec1; vec2] [ls1 ; ls2]).
+  apply AbsL_Cons. apply H. apply AbsL_Cons. apply H0. apply AbsL_Nil.
+Qed.
+
+Theorem snoc_Bottom_relate : forall {A} vec ls (val : A),
+  is_RRB vec -> vec_has_space_p vec = true ->
+  Abs vec ls -> Abs (snoc_Bottom vec val) (val :: ls).
+Proof.
+  intros. induction H1.
+  (* vec = E *)
+  + unfold snoc_Bottom. apply (Abs_N 1 [1] [Leaf [1] [val]] [[val]]).
+    apply AbsL_Cons. apply Abs_L. apply AbsL_Nil.
+  (* vec = Leaf *)
+  + unfold snoc_Bottom. destruct (vec_has_space_p (Leaf szs ns)) eqn:d_vec_has_space.
+    - destruct szs eqn:d_szs.
+      * inversion H. contradiction.
+      * apply Abs_L.
+    - inversion H0.
+  (* vec = Node *)
+  + unfold snoc_Bottom. destruct szs eqn:d_szs.
+    - inversion H. contradiction.
+    - destruct ns eqn:d_ns.
+      * inversion H. contradiction.
+      * fold (snoc_Bottom t val). destruct (vec_has_space_p t) eqn:d_vec_has_space'.
+        Focus 2.
+        ++ assert (H2: (val :: append_all ls) = append_all [val :: append_all ls]).
+           { simpl. rewrite append_nil. reflexivity. }
+           rewrite H2.
+           apply (Abs_N ht ([n + 1] ++ n :: l) ([mkLeafAtHeight (ht - 1) val] ++ t :: l0) [val :: append_all ls]).
+           assert(H3: [mkLeafAtHeight (ht - 1) val] ++ t :: l0 = (mkLeafAtHeight (ht - 1) val) :: (t :: l0)).
+           { simpl. reflexivity. }
+           rewrite H3.
+           assert (H4: ([val] :: ls) = [val :: append_all ls]).
+           { apply append_all_rw1. }
+           rewrite <- H4.
+           apply AbsL_Cons.
+           apply mkLeafAtHeight_relate. apply H1.
+        ++ (* No induction hypothesis :( *)
+Admitted.
+
+Theorem snoc_relate:
+ forall {A} vec ls (val : A),
+    is_RRB vec -> Abs vec ls -> Abs (snoc vec val) (val :: ls).
+Proof.
+  intros. unfold snoc. destruct (vec_has_space_p vec) eqn:d_vec_has_space.
+  + apply snoc_Bottom_relate. apply H. apply d_vec_has_space. apply H0.
+  + apply (join_relate (mkLeafAtHeight (get_height vec) val) vec [val] ls).
+    apply mkLeafAtHeight_relate. apply H0.
+Qed.
+
+Theorem get_relate:
+  forall {A : Type} n vec ls (d : A),
+    is_RRB vec ->
+    Abs vec ls -> get n vec d = nth n ls d.
+Proof.
+  intros. induction H0.
+  + simpl ; destruct n ; reflexivity.
+  + admit.
+(*
+    unfold get, vec_length. unfold index_of, M.
+    assert(H1: (n / M ^ 0) mod M = n).
+*)
+Admitted.
