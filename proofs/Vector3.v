@@ -434,18 +434,17 @@ Proof.
                  +++ inversion H. apply H9.
                  +++ apply Forall_cons. apply H1.
                      inversion H. inversion H10. apply H14.
-           -- destruct (vec_has_space_p (Node ht (n :: l) (t :: l0))) eqn:d_vec_has_space'.
-              ** apply Inv1.
-                 +++ intro. inversion H1.
-                 +++ intro. inversion H1.
-                 +++ inversion H. apply zero_not_in_cons_succ.
-                    apply H6.
-                 +++ (* <= M *) admit.
-                 +++ simpl. inversion H. assert(H10: S (length l) = S (length l0)).
-                     { apply H8. }
-                     rewrite H10. reflexivity.
-                 +++ apply Forall_cons. apply is_RRB_mkLeafAtHeight.
-                    inversion H. apply H9.
+           -- apply Inv1.
+              +++ intro. inversion H1.
+              +++ intro. inversion H1.
+              +++ inversion H. apply zero_not_in_cons_succ.
+                 apply H6.
+              +++ (* <= M *) admit.
+              +++ simpl. inversion H. assert(H10: S (length l) = S (length l0)).
+                  { apply H8. }
+                  rewrite H10. reflexivity.
+              +++ apply Forall_cons. apply is_RRB_mkLeafAtHeight.
+                     inversion H. apply H9.
 Admitted.
 
 Lemma join_is_RRB : forall {A} vec ht (a : A),
@@ -576,23 +575,8 @@ Proof.
            rewrite <- H4.
            apply AbsL_Cons.
            apply mkLeafAtHeight_relate. apply H1.
-        ++ (* No induction hypothesis :( *)
-Admitted.
+        ++ Admitted.
 
-Print Abs_mut.
-
-Lemma snoc_Bottom_relate' : forall {A} vec ls (val : A),
-  is_RRB vec -> vec_has_space_p vec = true ->
-  Abs vec ls -> Abs (snoc_Bottom vec val) (val :: ls).
-Proof.
-  intros. apply (Abs_mut A
-                  (fun a b abs => Abs (snoc_Bottom a val) b)
-                  (fun a b abs => AbsL a b)).
-  + admit.
-  + admit.
-  +intros.
-
-(* forall (l : list (tree ?T)) (l0 : list (list ?T)), AbsL l l0 -> Prop *)
 
 Theorem snoc_relate:
  forall {A} vec ls (val : A),
@@ -609,11 +593,10 @@ Theorem get_relate:
     is_RRB vec ->
     Abs vec ls -> get n vec d = nth n ls d.
 Proof.
-  intros. induction H0.
-  + simpl ; destruct n ; reflexivity.
-  + admit.
-(*
-    unfold get, vec_length. unfold index_of, M.
-    assert(H1: (n / M ^ 0) mod M = n).
-*)
-Admitted.
+  intros. induction vec using tree_ind'.
+  (* vec = E *)
+  + unfold get. destruct (n <? vec_length E) eqn:d_vec_length.
+    - unfold get'. inversion H0. rewrite nth_nil. reflexivity.
+    - inversion H0. rewrite nth_nil. reflexivity.
+  + unfold get. destruct (n <? vec_length (Leaf szs ls0)) eqn:d_vec_length.
+    - unfold get'. inversion H0. rewrite <- H1.

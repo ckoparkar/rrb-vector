@@ -163,6 +163,13 @@ Proof.
       rewrite <- append_all_rw2 in H0. rewrite H0. reflexivity.
 Qed.
 
+Lemma nth_nil : forall A n (d : A), nth n [] d = d.
+Proof.
+  intros. unfold nth. induction n.
+  + reflexivity.
+  + reflexivity.
+Qed.
+
 (* ---------------------------------- *)
 (* -- bdestruct                       *)
 (* ---------------------------------- *)
