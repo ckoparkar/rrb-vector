@@ -115,6 +115,13 @@ Proof. Admitted.
 Lemma add_not_0 : forall a b, a <> 0 -> b <> 0 -> a + b <> 0.
 Proof. Admitted.
 
+Lemma n_not_lt_0 : forall n, ~ (n < 0).
+Proof.
+  intros. induction n.
+  + unfold not. intro. inversion H.
+  + unfold not. intro. inversion H.
+Qed.
+
 Lemma append_assoc : forall {A} (ls1 : list A) ls2 ls3,
   ls1 ++ (ls2 ++ ls3) = (ls1 ++ ls2) ++ ls3.
 Proof.
@@ -142,7 +149,7 @@ Proof.
   + simpl. reflexivity.
   + Admitted.
 
-Lemma append_all_rw2 : forall A (ls : list A), ls = append_all [ls].
+Lemma append_all_rw2 : forall {A} (ls : list A), ls = append_all [ls].
 Proof.
   intros. unfold append_all. rewrite append_nil. reflexivity.
 Qed.
@@ -169,6 +176,16 @@ Proof.
   + reflexivity.
   + reflexivity.
 Qed.
+
+Lemma nth_length_out_of_bound : forall {A} n (ls : list A) d,
+  n >= length ls -> nth n ls d = d.
+Proof. Admitted.
+
+Definition rev_nth {A : Type} (n:nat) (l:list A) (default:A) : A :=
+  if n <? length l
+  then nth ((length l) - n - 1) l default
+  else default.
+
 
 (* ---------------------------------- *)
 (* -- bdestruct                       *)
