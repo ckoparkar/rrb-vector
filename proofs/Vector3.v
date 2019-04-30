@@ -27,12 +27,22 @@ Arguments E    {A}.
 Arguments Leaf {A}.
 Arguments Node {A}.
 
+
+(* Stronger induction principle
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Print tree_ind.
 
+The induction principle that Coq generates by default, tree_ind, doesn't
+say that if a proposition P holds for a Node, it also holds for the sub-trees
+(list (tree A)) that Node. We work around that by defining our own induction
+principle. See Nested Inductive Types under:
 
-(* See Nested Induction Types under:
-   http://adam.chlipala.net/cpdt/html/InductiveTypes.html *)
+    http://adam.chlipala.net/cpdt/html/InductiveTypes.html
 
+This turned out to be really important for almost all the proofs.
+
+*)
 Section tree_ind'.
   Variable A : Type.
   Variable P : (tree A) -> Prop.
@@ -59,11 +69,7 @@ Section tree_ind'.
 End tree_ind'.
 
 
-(* The type exported out of this module *)
-Definition vector1 (A : Type) := tree A.
-
-
-(* Upper bound on the #elems in a tree of height h *)
+(* Upper bound on the #elems in a tree of height h. *)
 Definition vec_capacity {A : Type} (tr : tree A) : nat :=
   match tr with
   | E           => 0
@@ -82,6 +88,7 @@ Definition get_height {A : Type} (tr : tree A) : nat :=
 (* -- Length                          *)
 (* ---------------------------------- *)
 
+(* Return the length of a vector. *)
 Definition vec_length {A : Type} (tr : tree A) : nat :=
   match tr with
   | E => 0
@@ -95,6 +102,7 @@ Definition vec_length {A : Type} (tr : tree A) : nat :=
                     end
   end.
 
+(* Does this vector have space to store one more element ? *)
 Fixpoint vec_has_space_p {A : Type} (tr : tree A) : bool :=
   match tr with
   | E             => true
@@ -109,11 +117,39 @@ Fixpoint vec_has_space_p {A : Type} (tr : tree A) : bool :=
   end.
 
 
-(* ---------------------------------- *)
-(* -- Invariant datatype              *)
-(* ---------------------------------- *)
+(* Invariants of an RB tree
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-(* Only the leftmost sub-tree can be partially empty. *)
+(1) Only the rightmost subtree (or leftmost in this case) can be partially
+    empty, specified by filledness_RRB.
+
+(2) The list of sizes properly track the sizes of sub-trees. In this Node
+    for example, 4 is the size of the corresponding Leaf, and 8 is
+    (size of Leaf + size of things before it). For leaves, (head sizes)
+    must be equal to the #elems in it.
+
+    Node 1 [6 ; 4]
+         [ Leaf [2 ; 1]         [14 ; 13]
+         ; Leaf [4 ; 3 ; 2 ; 1] [12 ; 11 ; 10 ; 9]
+         ]
+
+(3) (2) gives us another side-condition that the length of 'sizes' must
+    be equal to length of 'elems', (sub-trees for Node, A's for Leaf).
+
+(4) Also, length of both these lists must be <= the branching factor, M,
+    and they cannot be null either.
+
+(5) The empty vector, E, is only to serve the purpose of certain base
+    cases, it cannot occur as a sub-tree in a node. We enforce this
+    by saying that 0 cannot occur in sizes. This not so direct, and can
+    be improved.
+
+(6) All the above invariants must also hold for all subtrees of a Node.
+
+*)
+
+
+(* Because, why not. *)
 Inductive filledness_RRB {A : Type} : list (tree A) -> Prop :=
 | PE_Nil  : filledness_RRB []
 | PE_Cons : forall tr trs,
@@ -127,14 +163,23 @@ Inductive size_prop_RRB {A : Type} : (list nat * list (tree A)) -> Prop :=
 
 Inductive is_RRB {A : Type} : tree A -> Prop :=
 | RRB_Node : forall (ht : nat) (szs : list nat) (ns : list (tree A)),
-    ns <> [] -> szs <> [] -> ~ (In 0 szs) ->
-    length ns <= M -> length szs = length ns ->
-    size_prop_RRB (szs , ns) -> filledness_RRB ns ->
-    Forall is_RRB ns -> is_RRB (Node ht szs ns)
+    (* 4: *) ns <> [] -> szs <> [] ->
+    (* 5: *) ~ (In 0 szs) ->
+    (* 4: *) length ns <= M ->
+    (* 3: *) length szs = length ns ->
+    (* 2: *) size_prop_RRB (szs , ns) ->
+    (* 1: *) filledness_RRB ns ->
+    (* 6: *) Forall is_RRB ns ->
+             is_RRB (Node ht szs ns)
+
 | RRB_Leaf : forall (szs : list nat) (ns : list A),
-    ns <> [] -> szs <> [] -> ~ (In 0 szs) ->
-    length ns <= M -> length szs = length ns ->
-    hd 0 szs = length ns -> is_RRB (Leaf szs ns)
+    (* 4: *) ns <> [] -> szs <> [] ->
+    (* 5: *) ~ (In 0 szs) ->
+    (* 4: *) length ns <= M ->
+    (* 3: *) length szs = length ns ->
+    (* 2: *) hd 0 szs = length ns ->
+             is_RRB (Leaf szs ns)
+
 | RRB_E : is_RRB E.
 
 
@@ -142,7 +187,7 @@ Inductive is_RRB {A : Type} : tree A -> Prop :=
 (* -- Lookup                          *)
 (* ---------------------------------- *)
 
-(* Not using bit operations for now *)
+(* Calculate index without using bit operations for now. *)
 Definition index_of (ht : nat) (i : nat) : nat := (i / (M ^ ht)) mod M.
 
 Lemma mod_lt : forall n, n mod M < M.
@@ -154,15 +199,18 @@ Proof. intros. unfold index_of, M. apply mod_lt. Qed.
 Fixpoint get' {A : Type} (idx : nat) (tr : tree A) (default : A) : A :=
   match tr with
   | E => default
+
   | Leaf _ ns =>
-    (* Need to prove: (slot' < length ns) *)
     let slot'  := index_of 0 idx in
+    (* slot'' is what makes get' work with the reversed ordering.
+       Note that using `get' (vec_length tr - 1 - idx) tr default`
+       in `get` doesn't work. *)
     let slot'' := (length ns) - slot' - 1 in
     nth slot'' ns default
+
   | Node ht szs trs =>
     let slot' := index_of ht idx in
     let slot'' := (length trs) - slot' - 1 in
-    (* Need to prove: (slot' < length trs) *)
     match (slot'' , trs) with
     | (0 , t0 :: ts)                   => get' idx t0 default
     | (1 , t0 :: t1 :: ts)             => get' idx t1 default
@@ -172,13 +220,14 @@ Fixpoint get' {A : Type} (idx : nat) (tr : tree A) (default : A) : A :=
     end
   end.
 
+(* Retrieve a element from a vector. Works with the new reversed vector. *)
 Definition get {A : Type} (idx : nat) (tr : tree A) (default : A) : A :=
   if idx <? vec_length tr
   then get' idx tr default
   else default.
 
 
-(* Only for writing a proof. *)
+(* This get matches the one in the paper. Only here for writing a proof. *)
 Fixpoint get2' {A : Type} (idx : nat) (tr : tree A) (default : A) : A :=
   match tr with
   | E => default
@@ -201,6 +250,7 @@ Definition get2 {A : Type} (idx : nat) (tr : tree A) (default : A) : A :=
   then get2' idx tr default
   else default.
 
+
 (* ---------------------------------- *)
 (* -- Snoc                            *)
 (* ---------------------------------- *)
@@ -211,24 +261,10 @@ Fixpoint mkLeafAtHeight {A : Type} (ht : nat) (v1 : A) : tree A :=
   | S n => Node ht [1] [mkLeafAtHeight n v1]
   end.
 
-Lemma mkLeafAtHeight_not_E : forall A ht (a : A), mkLeafAtHeight ht a <> E.
-Proof.
-  intros. induction ht.
-  + unfold mkLeafAtHeight. intro. inversion H.
-  + unfold mkLeafAtHeight. intro. inversion H.
-Qed.
-
-Lemma mkLeafAtHeight_not_E_sym : forall A ht (a : A), E <> mkLeafAtHeight ht a.
-Proof.
-  intros. induction ht.
-  + unfold mkLeafAtHeight. intro. inversion H.
-  + unfold mkLeafAtHeight. intro. inversion H.
-Qed.
-
 Definition join {A : Type} (a : tree A) (b : tree A) : (tree A) :=
   Node (get_height a + 1) [ (vec_length a + vec_length b) ; vec_length b ] [a ; b].
 
-
+(* For reasons mentioned in the README, this is actually cons_Bottom. *)
 Fixpoint snoc_Bottom {A : Type} (tr : tree A) (v1 : A) : (tree A) :=
   match tr with
   | E => (Node 1 [1] [Leaf [1] [v1]])
@@ -283,12 +319,24 @@ Fixpoint fromList {A : Type} (xs : list A) : (tree A) :=
 
 
 (* ---------------------------------- *)
-(* -- Theorems                        *)
+(* -- Proofs                          *)
 (* ---------------------------------- *)
 
 
+Lemma mkLeafAtHeight_not_E : forall A ht (a : A), mkLeafAtHeight ht a <> E.
+Proof.
+  intros. induction ht ; unfold mkLeafAtHeight ; intro ; inversion H.
+Qed.
+
+Lemma mkLeafAtHeight_not_E_sym : forall A ht (a : A), E <> mkLeafAtHeight ht a.
+Proof.
+  intros. induction ht ; unfold mkLeafAtHeight ; intro ; inversion H.
+Qed.
+
+
 (***
-  isRRB vec -> vec_length vec = 0 <-> vec = E.
+
+  Theorem 1: The length of a vector is 0 iff it's empty.
 
   ***)
 
@@ -321,7 +369,8 @@ Qed.
 
 
 (***
-  is_RRB vec -> In_Vec a (snoc vec a)
+
+  Theorem 2: After `snoc vec a`, a is in the vector.
 
   ***)
 
@@ -394,13 +443,13 @@ Qed.
 
 
 (***
-  is_RRB vec -> vec_has_space_p vec = true -> (snoc_Bottom vec a) <> E.
+
+  Theorem 3: If a vector has space, snoc_Bottom never "fails".
 
   ***)
 
 Theorem snoc_Bottom_not_E : forall {A} vec (a : A),
-  is_RRB vec -> vec_has_space_p vec = true
-  -> (snoc_Bottom vec a) <> E.
+  is_RRB vec -> vec_has_space_p vec = true -> (snoc_Bottom vec a) <> E.
 Proof.
   intros. induction vec using tree_ind'.
   + unfold snoc_Bottom. intro. inversion H1.
@@ -425,13 +474,14 @@ Qed.
 
 
 (***
-  is_RRB vec -> vec_has_space_p vec = true -> (snoc_Bottom vec a) <> E.
+
+  Theorem 4: After snoc'ing one element into a vector, it's length increases by 1
 
   ***)
 
-Theorem snoc_Bottom_length : forall {A} vec (a : A),
-  is_RRB vec -> vec_has_space_p vec = true
-  -> vec_length (snoc_Bottom vec a) = vec_length vec + 1.
+Lemma snoc_Bottom_length : forall {A} vec (a : A),
+  is_RRB vec -> vec_has_space_p vec = true ->
+  vec_length (snoc_Bottom vec a) = vec_length vec + 1.
 Proof.
   intros. induction vec using tree_ind'.
   (* vec = E *)
@@ -459,8 +509,14 @@ Proof.
 Qed.
 
 
+Theorem snoc_length : forall {A} vec (a : A),
+  is_RRB vec -> vec_length (snoc vec a) = vec_length vec + 1.
+Proof. Admitted.
+
+
 (***
-  is_RRB vec -> is_RRB (snoc vec a).
+
+  Theorem 5: snoc maintains the invariants of an RB tree.
 
   ***)
 
@@ -692,7 +748,8 @@ Scheme Abs_mut := Induction for Abs Sort Prop
 with AbsL_mut := Induction for AbsL Sort Prop.
 
 (***
-  is_RRB vec -> Abs vec ls -> Abs (snoc vec val) (val :: ls).
+
+  Theorem 6: snoc relates to (val :: ls).
 
   ***)
 
@@ -759,8 +816,9 @@ Proof.
            rewrite <- H4.
            apply AbsL_Cons.
            apply mkLeafAtHeight_relate. apply H1.
-        ++ inversion H1.
+        ++ admit.
 (*
+           inversion H1.
            assert(H7: Abs (snoc_Bottom t val) (val :: l1)).
            { admit. }
            destruct (snoc_Bottom t val) eqn:d_snoc_bot.
@@ -789,27 +847,10 @@ Proof.
 Qed.
 
 
-(***
-  is_RRB vec -> exists ls, Abs vec ls
-
-  ***)
-
-Theorem can_relate : forall {A} (vec : tree A),
-  is_RRB vec -> exists ls, Abs vec ls.
-Proof.
-  intros. induction vec using tree_ind'.
-  + exists []. apply Abs_E.
-  + exists ls. eapply Abs_L.
-  + eexists.
-    rewrite append_all_rw2. apply Abs_N. destruct ls eqn:d_ls.
-    - inversion H. subst. contradiction.
-    - inversion H0. apply AbsL_Cons.
-      * inversion H. inversion H13.
-Admitted.
-
 
 (***
-  ...
+
+  Theorem ...:
 
   ***)
 
@@ -818,7 +859,13 @@ Theorem abs_length : forall {A} vec (ls : list A),
 Proof. Admitted.
 
 
-(* Theorem 5: Hack. *)
+
+(***
+
+  Theorem ...:
+
+  ***)
+
 Theorem get2_relate:
   forall {A : Type} n vec ls (d : A),
     is_RRB vec ->
