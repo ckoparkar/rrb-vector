@@ -82,8 +82,26 @@ Proof.
   + simpl. right. apply IHxs.
 Qed.
 
-Lemma not_in_neq : forall n ls, ~ (In n ls) <-> Forall (fun n => n <> 0) ls.
-Proof. Admitted.
+Lemma sym_not_eq : forall (a : nat) b, a <> b -> b <> a.
+Proof.
+  intros. intro. symmetry in H0. contradiction.
+Qed.
+
+Lemma not_in_neq : forall n ls, ~ (In n ls) <-> Forall (fun m : nat => m <> n) ls.
+Proof.
+  intros. split.
+  (* -> *)
+  + unfold not. intro. induction ls.
+    - apply Forall_nil.
+    - apply Forall_cons. apply not_in_cons in H. inversion H. apply sym_not_eq.
+      apply H0. apply IHls. intro. destruct H. apply in_cons. apply H0.
+  (* <- *)
+  + intros. induction ls.
+    - simpl. intro. apply H0.
+    - apply not_in_cons. split.
+      * inversion H. apply sym_not_eq. apply H2.
+      * apply IHls. inversion H. apply H3.
+Qed.
 
 Fixpoint rev_append_all {A : Type} (ls : list (list A)) : list A :=
   match ls with
@@ -97,23 +115,40 @@ Fixpoint append_all {A : Type} (ls : list (list A)) : list A :=
   | x :: xs => x ++ append_all xs
   end.
 
-Lemma div_1 : forall n, n / 1 = n.
-Proof. Admitted.
-
 Lemma zero_not_in_cons_succ : forall n l, ~ In 0 (n :: l) -> ~ In 0 ([n + 1] ++ n :: l).
-Proof. Admitted.
+Proof.
+  intros. apply not_in_cons. split.
+  + omega.
+  + apply H.
+Qed.
 
 Lemma zero_not_in_succ : forall n l, ~ In 0 l -> ~ In 0 ([n + 1] ++ l).
-Proof. Admitted.
+Proof.
+  intros. apply not_in_cons. split.
+  + omega.
+  + apply H.
+Qed.
 
 Lemma zero_not_in_sublist : forall n l, ~ In 0 (n :: l) -> ~ In 0 l.
-Proof. Admitted.
+Proof.
+  intros. apply not_in_cons in H. inversion H. apply H1.
+Qed.
 
-Lemma S_lt_eq : forall n m, n < m -> S n <= m.
-Proof. Admitted.
+Lemma sum_0_iff_0 : forall a b, a + b = 0 <-> a = 0 /\ b = 0.
+Proof.
+  split.
+  (* -> *)
+  + intros. split.
+    - omega.
+    - omega.
+  + intros. omega.
+Qed.
 
 Lemma add_not_0 : forall a b, a <> 0 -> b <> 0 -> a + b <> 0.
-Proof. Admitted.
+Proof.
+  intros. rewrite sum_0_iff_0. unfold not.
+  intro. inversion H1. contradiction.
+Qed.
 
 Lemma n_not_lt_0 : forall n, ~ (n < 0).
 Proof.
@@ -137,17 +172,12 @@ Proof.
   + simpl. rewrite IHls1. reflexivity.
 Qed.
 
-Lemma append_rw1 : forall A (val : A) ls, [val] ++ ls = val :: ls.
+Lemma append_all_rw1 : forall A (val : A) ls, val :: append_all ls = append_all ([val] :: ls).
 Proof.
   intros. induction ls.
   + simpl. reflexivity.
-  + Admitted.
-
-Lemma append_all_rw1 : forall A (val : A) ls, ([val] :: ls) = [val :: append_all ls].
-Proof.
-  intros. induction ls.
   + simpl. reflexivity.
-  + Admitted.
+Qed.
 
 Lemma append_all_rw2 : forall {A} (ls : list A), ls = append_all [ls].
 Proof.
@@ -177,9 +207,13 @@ Proof.
   + reflexivity.
 Qed.
 
+(*
+
 Lemma nth_length_out_of_bound : forall {A} n (ls : list A) d,
   n >= length ls -> nth n ls d = d.
 Proof. Admitted.
+
+*)
 
 Definition rev_nth {A : Type} (n:nat) (l:list A) (default:A) : A :=
   if n <? length l

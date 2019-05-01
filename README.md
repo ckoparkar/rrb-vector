@@ -3,7 +3,6 @@
 
 ## Verification
 
-I've stuck with RB trees instead of RRB trees like I proposed earlier. Also,
 I cheated in the Coq implementation a little bit. The `snoc_Bottom` function
 in [Vector2.v](proofs/Vector2.v) exactly matches the Haskell version, and also
 the paper. Notice that it accepts a `fuel : nat` in addition to all the
@@ -15,14 +14,14 @@ problems. Specifically, I think I couldn't prove, without using an Axiom, that
 all snoc_Bottom's will always have enough fuel to finish executing. Also,
 becuase it's not structurally recursive on the tree, unfold wouldn't work
 in the usual way in the proofs and so on. I didn't get far with
-`Program Fixpoint` either; I'm having trouble remembering the exact details of
+`Program Fixpoint` either; but I'm having trouble remembering the exact details of
 where I was stuck. I briefly considered going the full 'Well-Founded Recursion'
 route, but decided against it.
 
 
 On Friday, I gave up and changed the implementation to grow the trees toward
-the left. This was the cheat I was referring to earlier. So `snoc` actually
-works like `cons`, and everything else is reversed too.
+the left. This is what I meant when I said I cheated.
+So `snoc` actually works like `cons`, and everything else is reversed too.
 For example, this is what a tree with 20 elements looks like:
 
 
@@ -64,16 +63,16 @@ I couldn't get a lot done -- here are some of the theorems I could prove:
 
 
 Also, in the presentation, I briefly mentioned a problem with the induction
-principle that Coq generates by default for the `tree` datatype --
-"because we use the type we are defining as an argument to a parameterized type family".
+principle that Coq generates by default for the `tree` datatype.
 Spefically, `tree_ind` doesn't say that if a proposition P holds for a `Node`,
-it also holds for all the sub-trees (list (tree A)) of that Node. At the time,
+it also holds for all the sub-trees (list (tree A)) of that Node.
+Chlipala says that this is "because we use the type we are defining as an argument to
+a parameterized type family". At the time,
 I had not finished these proofs, so I  couldn't point to any specific place
 where this becomes important. However, now I've learnt that a lot of these
-proofs would be impossible to write without the stronger induction principle,
-`tree_ind'`, that I copied from Chlipala's [book](http://adam.chlipala.net/cpdt/html/InductiveTypes.html)
-(see Nested Inductive Types), `snoc_is_RRB` in particular. I've marked
-one such goal in that proof.
+proofs would be impossible to write without the stronger induction principle
+(`tree_ind'`) that I copied from Chlipala's [book](http://adam.chlipala.net/cpdt/html/InductiveTypes.html)
+(see Nested Inductive Types). I've marked one such goal in `snoc_is_RRB`.
 
 
 
